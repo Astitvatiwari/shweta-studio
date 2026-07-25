@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# VS Code
+.vscode/
+
+# Debug & temporary files
+.codex-screenshots/
+debug_*.js
+run_audit.js
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

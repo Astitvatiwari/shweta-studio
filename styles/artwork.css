@@ -1,0 +1,54 @@
+/* ==========================================
+   FILE: artwork.css
+   PURPOSE: Artwork detail pages, galleries, and related works.
+
+   Author: Shweta Studio
+========================================== */
+
+/* ==========================================
+   ARTWORK DETAILS
+========================================== */
+.piece-copy {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+}
+
+.piece-copy h2,
+.piece-copy h3 {
+  margin: 0;
+  font-weight: 500;
+}
+
+.piece-copy h2 {
+  font-size: 1.2rem;
+}
+
+.piece-copy h3 {
+  font-size: 1.32rem;
+}
+
+.piece-price {
+  font-family: "Poppins", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--clay);
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+}
+
+/* ==========================================
+   GALLERY
+========================================== */
+.gallery-thumb-item {
+  transition: border-color 0.24s;
+}
+
+/* ==========================================
+   RELATED WORKS
+========================================== */
+.related-works-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 30px;
+}

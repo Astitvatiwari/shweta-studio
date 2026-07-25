@@ -1,0 +1,62 @@
+/* ==========================================
+   FILE: forms.css
+   PURPOSE: Buttons, inputs, textareas, status tags, and form fields focus styling.
+
+   Author: Shweta Studio
+========================================== */
+
+/* ==========================================
+   BUTTONS & LINKS
+========================================== */
+.tool-link,
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: transform 0.24s ease, background-color 0.24s ease, color 0.24s ease, border-color 0.24s ease;
+}
+
+.tool-link-filled,
+.button-primary {
+  border-color: var(--charcoal);
+  background: var(--charcoal);
+  color: var(--chalk);
+}
+
+.button-secondary {
+  background: rgba(255, 253, 247, 0.72);
+}
+
+.tool-link:hover,
+.button:hover {
+  transform: translateY(-2px);
+}
+
+/* ==========================================
+   FORM INPUTS & FOCUS STATES
+========================================== */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--clay) !important;
+  box-shadow: 0 0 0 2px rgba(180, 95, 52, 0.1) !important;
+}
+
+/* ==========================================
+   FORM STATUS MESSAGES
+========================================== */
+.form-status-message {
+  font-size: 0.86rem;
+  margin-top: 10px;
+  font-weight: 500;
+  min-height: 20px;
+}

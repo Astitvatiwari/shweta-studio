@@ -1,0 +1,78 @@
+/* ==========================================
+   FILE: contact.css
+   PURPOSE: Contact layout, coordinates, Google Maps, and FAQ details.
+
+   Author: Shweta Studio
+========================================== */
+
+/* ==========================================
+   CONTACT LAYOUT
+========================================== */
+.contact-stage {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 0.7fr);
+  align-items: center;
+}
+
+.contact-layout {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+
+.contact-copy {
+  grid-column: span 6;
+  display: grid;
+  gap: 18px;
+}
+
+.contact-copy h2 {
+  margin-bottom: 0;
+  font-family: "Cormorant Garamond", serif;
+  font-weight: 500;
+  line-height: 0.98;
+  letter-spacing: 0;
+  font-size: clamp(2.2rem, 4.4vw, 4.8rem);
+}
+
+.contact-copy p {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.85;
+}
+
+/* ==========================================
+   CONTACT DETAILS COORDINATES
+========================================== */
+.contact-details {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(255, 253, 247, 0.76);
+  padding: 22px;
+  grid-column: span 6;
+  display: grid;
+  gap: 22px;
+}
+
+.contact-details div {
+  display: grid;
+  gap: 8px;
+}
+
+.contact-details strong {
+  font-size: 1.08rem;
+  font-weight: 600;
+}
+
+.contact-details span,
+.contact-details a {
+  text-decoration: none;
+  color: var(--muted);
+  line-height: 1.8;
+  transition: color 0.24s;
+}
+
+.contact-details a:hover {
+  color: var(--charcoal);
+}

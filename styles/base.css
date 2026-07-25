@@ -1,0 +1,64 @@
+/* ==========================================
+   FILE: base.css
+   PURPOSE: CSS Reset, variables, fonts, typography, and base body styles.
+
+   Author: Shweta Studio
+========================================== */
+
+/* ==========================================
+   VARIABLES
+========================================== */
+:root {
+  --paper: #ffffff;
+  --chalk: #ffffff;
+  --clay: #b45f34;
+  --clay-dark: #70351f;
+  --charcoal: #111111;
+  --ink: #111111;
+  --sage: #5c6358;
+  --sand: #eae0d5;
+  --line: rgba(17, 17, 17, 0.08);
+  --line-strong: rgba(17, 17, 17, 0.18);
+  --muted: rgba(17, 17, 17, 0.58);
+  --surface: #ffffff;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
+  --radius: 4px;
+  --max-width: 1380px;
+}
+
+/* ==========================================
+   RESET & DEFAULTS
+========================================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Poppins", sans-serif;
+  color: var(--charcoal);
+  background: #ffffff;
+}
+
+img {
+  display: block;
+  width: 100%;
+}
+
+a {
+  color: inherit;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}

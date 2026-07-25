@@ -1,0 +1,131 @@
+/* ==========================================
+   FILE: animations.css
+   PURPOSE: Hover effects, keyframe loops, smooth cross-fades, card lifting, and intersection scroll reveal effects.
+
+   Author: Shweta Studio
+========================================== */
+
+/* ==========================================
+   IMAGE SWAP & TRANSITIONS
+========================================== */
+.image-swap {
+  position: relative;
+  overflow: hidden;
+  background: #e7dfd1;
+}
+
+.image-swap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 0.34s ease, transform 0.44s ease;
+}
+
+.image-swap .image-primary {
+  position: relative;
+  z-index: 1;
+  opacity: 1;
+}
+
+.image-swap .image-secondary,
+.image-swap .image-tertiary {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.34s ease, transform 0.44s ease;
+}
+
+.image-swap .image-secondary {
+  z-index: 2;
+}
+
+.image-swap .image-tertiary {
+  z-index: 3;
+}
+
+/* ==========================================
+   CARD HOVER ZOOM & LIFT
+========================================== */
+.hover-piece,
+.collection-card {
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.3s ease;
+}
+
+.hover-piece:hover,
+.collection-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.05);
+}
+
+.hover-piece img,
+.collection-card img {
+  transition: transform 0.5s ease;
+}
+
+.hover-piece:hover img.image-primary,
+.collection-card:hover img.image-primary {
+  transform: scale(1.03);
+}
+
+/* ==========================================
+   KEYFRAME LOOPS FOR 3-IMAGE CARDS
+========================================== */
+@keyframes hoverCyclePrimary {
+  0%, 30% { opacity: 1; }
+  33%, 97% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes hoverCycleSecondary {
+  0%, 30% { opacity: 0; }
+  33%, 63% { opacity: 1; }
+  66%, 100% { opacity: 0; }
+}
+
+@keyframes hoverCycleTertiary {
+  0%, 63% { opacity: 0; }
+  66%, 97% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.hover-piece.has-gallery:not(.has-2-images):hover .image-primary,
+.collection-card.has-gallery:not(.has-2-images):hover .image-primary {
+  animation: hoverCyclePrimary 4.5s infinite;
+}
+
+.hover-piece.has-gallery:not(.has-2-images):hover .image-secondary,
+.collection-card.has-gallery:not(.has-2-images):hover .image-secondary {
+  animation: hoverCycleSecondary 4.5s infinite;
+}
+
+.hover-piece.has-gallery:not(.has-2-images):hover .image-tertiary,
+.collection-card.has-gallery:not(.has-2-images):hover .image-tertiary {
+  animation: hoverCycleTertiary 4.5s infinite;
+}
+
+/* ==========================================
+   CROSS-FADE FOR 2-IMAGE CARDS
+========================================== */
+.hover-piece.has-2-images:hover .image-primary,
+.collection-card.has-2-images:hover .image-primary {
+  opacity: 0;
+}
+
+.hover-piece.has-2-images:hover .image-secondary,
+.collection-card.has-2-images:hover .image-secondary {
+  opacity: 1;
+}
+
+/* ==========================================
+   INTERSECTION OBSERVER SCROLL REVEALS
+========================================== */
+body.js-ready [data-reveal] {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.75s ease, transform 0.75s ease;
+}
+
+body.js-ready [data-reveal].is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}

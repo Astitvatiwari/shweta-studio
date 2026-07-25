@@ -1,0 +1,512 @@
+/* ==========================================
+   FILE: responsive.css
+   PURPOSE: Responsive overrides for Shweta Studio (breakpoints: 1200px, 992px, 768px, 576px, 400px).
+   This file is loaded after all desktop stylesheets.
+========================================== */
+
+/* ==========================================
+   GLOBAL RESPONSIVE ADJUSTMENTS
+========================================== */
+html, body {
+  overflow-x: hidden !important;
+  max-width: 100vw !important;
+  width: 100% !important;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Card layout height normalization for standard cards */
+.collection-card:not(.collection-card-large) {
+  display: flex !important;
+  flex-direction: column !important;
+}
+.collection-card:not(.collection-card-large) > a {
+  display: flex !important;
+  flex-direction: column !important;
+  flex-grow: 1 !important;
+}
+.collection-card:not(.collection-card-large) .piece-copy {
+  display: flex !important;
+  flex-direction: column !important;
+  flex-grow: 1 !important;
+  padding: 20px 15px 15px !important;
+}
+.collection-card:not(.collection-card-large) .piece-copy .button {
+  margin-top: auto !important;
+}
+
+/* ==========================================
+   BREAKPOINT: 1200PX (LAPTOPS / SMALL DESKTOPS)
+========================================== */
+@media (max-width: 1200px) {
+  .page-shell {
+    width: min(calc(100% - 40px), var(--max-width));
+  }
+
+  .collection-grid {
+    gap: 20px;
+  }
+
+  .collection-card {
+    grid-column: span 4 !important;
+  }
+}
+
+/* ==========================================
+   BREAKPOINT: 992PX (TABLETS LANDSCAPE)
+========================================== */
+@media (max-width: 992px) {
+  .brand .header-logo {
+    height: 70px;
+  }
+
+  /* Hamburger Navigation Structure */
+  .site-header {
+  display: grid !important;
+  grid-template-columns: 1fr auto !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 10px 18px !important;
+  z-index: 1000 !important;
+}
+
+  .brand {
+    order: 1 !important;
+  }
+
+  .menu-toggle {
+    display: inline-flex !important;
+    order: 2 !important;
+    justify-content: center;
+    align-items: center;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: transparent;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    position: relative !important;
+    z-index: 1010 !important;
+    pointer-events: auto !important;
+  }
+
+  .site-nav {
+    display: none !important;
+    width: 100% !important;
+    order: 3 !important;
+    margin-top: 15px !important;
+    padding-top: 15px !important;
+    border-top: 1px solid var(--line) !important;
+    gap: 8px !important;
+}
+
+  .site-nav.is-open {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 8px !important;
+  width: 100% !important;
+}
+
+  .header-tools {
+    display: none !important;
+  }
+
+  .nav-dropdown-wrapper {
+    width: 100% !important;
+  }
+
+  .nav-dropdown {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    padding: 6px 0 6px 15px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    transform: none !important;
+  }
+
+  .site-nav a {
+    text-align: left !important;
+    padding: 8px 0 !important;
+    font-size: 0.92rem !important;
+    display: block !important;
+    width: 100% !important;
+  }
+
+  /* Layout Overrides */
+  .hero {
+    grid-template-columns: 1fr !important;
+    gap: 30px !important;
+  }
+
+  .hero-product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .hero-main-piece {
+    grid-column: span 2 !important;
+  }
+
+  /* Collections Grid Overrides */
+  .collection-card {
+    grid-column: span 6 !important;
+  }
+
+  .collection-card-large {
+    grid-column: span 12 !important;
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 0.5fr) !important;
+  }
+
+  .related-works-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* Artwork Page - Tablet Gallery Above Details */
+  .editorial-layout {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 30px !important;
+}
+  .editorial-image-side,
+  .editorial-copy {
+    width: 100% !important;
+    grid-column: span 12 !important;
+  }
+  .contact-layout {
+    gap: 20px !important;
+  }
+}
+
+/* ==========================================
+   BREAKPOINT: 768PX (TABLETS PORTRAIT / MOBILE LANDSCAPE)
+========================================== */
+@media (max-width: 768px) {
+  .page-shell {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Convert all 2-column layouts to single column */
+  .contact-layout,
+.home-showcase,
+.page-stage {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 24px !important;
+}
+
+  .page-stage {
+    min-height: auto !important;
+  }
+
+  .editorial-image-side,
+  .editorial-copy,
+  .contact-copy,
+  .contact-details {
+    width: 100% !important;
+    grid-column: span 12 !important;
+  }
+
+  .story-grid,
+  .process-grid,
+  .engagements-grid,
+  .page-boundary {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* About / Text Sections Adjustments */
+  .split-stage {
+    display: grid !important;
+  grid-template-columns: 1fr !important;
+}
+
+  .split-stage > img,
+  .split-stage > div {
+    width: 100% !important;
+  }
+
+  .split-stage > img {
+    min-height: 300px !important;
+    max-height: 400px !important;
+    object-fit: cover !important;
+  }
+
+  /* Homepage showcase and hero products layout */
+  .hero-product-grid {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+}
+
+  .collection-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .hero-main-piece {
+    grid-column: span 12 !important;
+    width: 100% !important;
+  }
+
+  .hero-main-piece .image-swap {
+    min-height: 350px !important;
+  }
+
+  /* Spacing and margins scale down */
+  .page-stack {
+    gap: 30px !important;
+    padding-top: 30px !important;
+  }
+
+  .hero,
+  .page-stage,
+  .page-intro,
+  .bounded-grid,
+  .section-shell {
+    padding: 24px 18px !important;
+  }
+
+  /* Centered Hero and Intro Copy */
+  .hero-copy,
+.page-intro {
+  text-align: center !important;
+  justify-items: center;
+  align-content: center;
+}
+  .hero-copy h1,
+  .page-intro h1 {
+    text-align: center !important;
+  }
+  .hero-text,
+  .page-intro p {
+    text-align: center !important;
+    max-width: 600px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+
+  /* Typography Scales */
+  .stage-copy h1,
+  .hero h1,
+  .page-intro h1 {
+    font-size: clamp(1.8rem, 6.5vw, 2.5rem) !important;
+    line-height: 1.1 !important;
+  }
+
+  .section-head-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+
+  .section-head-row h2 {
+    font-size: clamp(1.4rem, 5.5vw, 1.95rem) !important;
+  }
+
+  /* Fluid Forms Overrides */
+  #contact-page-form div,
+  #home-contact-form div,
+  #inquiry-form div {
+    grid-template-columns: 1fr !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  #contact-page-form input,
+  #contact-page-form select,
+  #home-contact-form input,
+  #home-contact-form select,
+  #inquiry-form input,
+  #inquiry-form select {
+    min-height: 48px !important;
+  }
+
+  #contact-page-form input,
+  #contact-page-form select,
+  #contact-page-form textarea,
+  #home-contact-form input,
+  #home-contact-form select,
+  #home-contact-form textarea,
+  #inquiry-form input,
+  #inquiry-form select,
+  #inquiry-form textarea {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    font-size: 16px !important;
+    padding: 12px 16px !important;
+  }
+
+  .button,
+  .tool-link {
+    min-height: 48px !important;
+    text-align: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    white-space: nowrap !important;
+  }
+
+  #contact-page-form button,
+  #home-contact-form button,
+  #inquiry-form button,
+  .collection-card .button,
+  .piece-copy .button {
+    width: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+  }
+
+  /* Scrollable mobile thumbnail gallery */
+  .thumbnail-gallery-container {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    gap: 10px !important;
+    padding-bottom: 8px !important;
+    margin-top: 15px !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .thumbnail-gallery-container .gallery-thumb-item {
+    flex: 0 0 75px !important;
+    max-width: 75px !important;
+    aspect-ratio: 1 !important;
+  }
+
+  /* Footer Layout Centering */
+  .site-footer {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 20px !important;
+    padding: 20px 10px !important;
+  }
+  .site-footer .footer-copyright-block {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+  .site-footer .footer-copyright-block div {
+    margin-bottom: 12px !important;
+  }
+  .site-footer .footer-copyright-block div img {
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+  .site-footer p {
+    text-align: center !important;
+  }
+  .site-footer span {
+    display: flex !important;
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+    gap: 15px !important;
+    width: 100% !important;
+  }
+  .site-footer span a {
+    margin-right: 0 !important;
+  }
+}
+
+/* ==========================================
+   BREAKPOINT: 576PX (MOBILE PORTRAIT)
+========================================== */
+@media (max-width: 576px) {
+  .brand .header-logo {
+    height: 55px;
+  }
+
+  .site-header {
+    padding: 8px 12px !important;
+  }
+
+  /* Stack collection cards vertically */
+  .collection-card {
+    grid-column: span 12 !important;
+  }
+
+  .collection-card-large {
+    grid-column: span 12 !important;
+    grid-template-columns: 1fr !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .collection-card-large .image-swap {
+    aspect-ratio: 4 / 3.2 !important;
+  }
+
+  .related-works-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+  }
+
+  /* Padding scales */
+  .hero,
+  .page-stage,
+  .page-intro,
+  .bounded-grid,
+  .section-shell {
+    padding: 20px 14px !important;
+  }
+
+  .stage-copy h1,
+  .hero h1,
+  .page-intro h1 {
+    font-size: 2.2rem !important;
+  }
+}
+
+/* ==========================================
+   BREAKPOINT: 400PX (SMALL MOBILE - E.G. 320PX, 375PX)
+========================================== */
+@media (max-width: 400px) {
+  .brand .header-logo {
+    height: 46px;
+  }
+
+  .site-header {
+    padding: 6px 10px !important;
+  }
+
+  .menu-toggle {
+    font-size: 0.74rem !important;
+    padding: 6px 10px !important;
+  }
+
+  /* Typographic refinements for tiny displays */
+  .stage-copy h1,
+  .hero h1,
+  .page-intro h1 {
+    font-size: 1.85rem !important;
+    line-height: 1.15 !important;
+  }
+
+  .section-head-row h2 {
+    font-size: 1.62rem !important;
+  }
+
+  .piece-copy h2,
+  .piece-copy h3 {
+    font-size: 1.1rem !important;
+  }
+  
+  .piece-price {
+    font-size: 0.88rem !important;
+  }
+
+  /* Prevent text justify wrapping errors on small widths */
+  .editorial-copy p {
+    text-align: left !important;
+  }
+}

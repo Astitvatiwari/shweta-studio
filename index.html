@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SHWETA STUDIO | Contemporary Fine Art & Sculpture</title>
+  <meta name="description" content="Digital gallery and artist portfolio of Shweta Jain Maheshwari, displaying terracotta sculptures, drawings, and installations.">
+  
+  <!-- Favicon References Placeholder (Once generated from all work/logo/only logo.png) -->
+  <!-- 
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="manifest" href="site.webmanifest">
+  -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/layout.css">
+  <link rel="stylesheet" href="styles/home.css">
+  <link rel="stylesheet" href="styles/collections.css">
+  <link rel="stylesheet" href="styles/contact.css">
+  <link rel="stylesheet" href="styles/forms.css">
+  <link rel="stylesheet" href="styles/animations.css">
+  <link rel="stylesheet" href="styles/responsive.css">
+  
+  <!-- EmailJS SDK -->
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+  <script type="text/javascript">
+    (function() {
+      emailjs.init("YOUR_PUBLIC_KEY");
+    })();
+  </script>
+</head>
+<body>
+  <div class="page-shell">
+    <!-- AUTO_HEADER_START -->
+<header class="site-header">
+      <a class="brand" href="index.html" aria-label="SHWETA STUDIO home">
+        <img src="all work/logo/logo with name.png" alt="Shweta Studio Logo" loading="eager" class="header-logo">
+      </a>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+      <nav class="site-nav" id="site-nav" aria-label="Primary navigation">
+        <a href="index.html" id="nav-home-link" class="is-active">Home</a>
+        <div class="nav-dropdown-wrapper">
+          <a href="works.html" id="nav-collections-link">Collections</a>
+          <div class="nav-dropdown">
+            <a href="sculptures.html">Sculptures</a>
+            <a href="paintings.html">Paintings</a>
+            <a href="jewellery.html">Jewellery &  Handmade Creations</a>
+          </div>
+        </div>
+        <a href="story.html" id="nav-story-link">Story</a>
+        <a href="engagements.html" id="nav-engagements-link">Public Engagements</a>
+        <a href="contact.html" id="nav-contact-link">Contact</a>
+      </nav>
+      <div class="header-tools">
+        <a class="tool-link" href="works.html">View Collections</a>
+        <a class="tool-link tool-link-filled" href="contact.html">Inquire</a>
+      </div>
+    </header>
+<!-- AUTO_HEADER_END -->
+<!-- AUTO_HEADER_END -->
+
+    <main class="page-stack" style="background: #ffffff;">
+      
+      <!-- 1. Hero Section -->
+      <section class="page-stage home-stage" data-reveal style="border: none; box-shadow: none; background: #ffffff; padding: 60px 20px;">
+        <div class="stage-copy" style="max-width: 550px;">
+          <p class="eyebrow">Artist: Shweta Jain Maheshwari</p>
+          <h1 style="text-align: center; margin: 0 0 20px;">
+            <img src="all work/logo/full logo.png" alt="Shweta Studio Logo" loading="lazy" style="max-width: 350px; width: 100%; height: auto; display: inline-block;">
+          </h1>
+          <p style="font-family: 'Poppins', sans-serif; font-size: clamp(1.1rem, 2vw, 1.35rem); font-weight: 500; color: var(--clay-dark); letter-spacing: 0.04em; margin-bottom: 20px; line-height: 1.3;">
+            Contemporary Art, Sculpture & Public Engagement
+          </p>
+          <p style="color: var(--muted); line-height: 1.8; font-size: 0.98rem; margin-bottom: 25px;">
+            Based in Agra, India, Shweta Jain Maheshwari creates raw-textured terracotta sculptures, fine art paintings, and mixed media installations, combining traditional Indian heritage with contemporary forms.
+          </p>
+          <div class="hero-actions" style="display: flex; gap: 12px;">
+            <a class="button button-primary" href="works.html" style="border-radius: 4px; font-size: 0.8rem;">View Collections</a>
+            <a class="button button-secondary" href="contact.html" style="border-radius: 4px; font-size: 0.8rem;">Inquire</a>
+          </div>
+        </div>
+
+        <div class="home-showcase" style="border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa; aspect-ratio: 16/10; width: 100%;">
+          <img src="all work/scuptures/Inner Sentinel/Inner Sentinel 1_medium.webp" alt="Terracotta sculpture by Shweta Jain Maheshwari" style="width: 100%; height: 100%; object-fit: contain;">
+        </div>
+      </section>
+
+      <!-- 2. Featured Work Section -->
+      <section class="bounded-grid" style="border: none; box-shadow: none; padding: 40px 20px; background: #ffffff; border-top: 1px solid var(--line);">
+        <h2 style="font-family: 'Cormorant Garamond', serif; font-size: 2.2rem; font-weight: 400; margin-bottom: 30px; text-align: center; color: var(--charcoal);">Featured Work</h2>
+        <div class="editorial-layout" style="grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 30px; align-items: center;">
+          <div style="grid-column: span 6;">
+            <article class="hover-piece has-gallery" style="background: #ffffff; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; display: block;">
+              <a href="pieces/inner-sentinel.html" style="text-decoration: none; color: inherit; display: block;">
+                <div class="image-swap" style="aspect-ratio: 4/5;">
+                  <img class="image-primary" src="all work/scuptures/Inner Sentinel/Inner Sentinel 1_medium.webp" alt="Hands of Hope" loading="lazy">
+                  <img class="image-secondary" src="all work/scuptures/Inner Sentinel/Inner Sentinel 2_medium.webp" alt="Hands of Hope alternate" loading="lazy">
+                  <img class="image-tertiary" src="all work/scuptures/Inner Sentinel/Inner Sentinel 3_medium.webp" alt="Hands of Hope detail" loading="lazy">
+                </div>
+              </a>
+            </article>
+          </div>
+          <div style="grid-column: span 6; display: grid; gap: 20px;">
+            <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--clay); letter-spacing: 0.1em; font-weight: 600;">Featured Sculpture</span>
+            <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 2.5rem; font-weight: 400; margin: 0; color: var(--charcoal);">Hands of Hope</h3>
+            <span style="font-size: 0.86rem; color: var(--muted); font-weight: 500;">Inventory Code: <strong>SS-SC-003</strong></span>
+            <p style="color: var(--muted); line-height: 1.8; font-size: 0.94rem;">
+              Inner Sentinel stands as a monumental hand-built sculpture symbolizing guardianship, memory, and emotional shielding. Carved from native clay, the towering structure features vertical mask contours and protective shield ...
+            </p>
+            <div style="display: flex; gap: 12px; margin-top: 10px;">
+              <a href="pieces/inner-sentinel.html" class="button button-primary" style="border-radius: 4px; font-size: 0.78rem;">View Details</a>
+              <span class="status-tag status-available" style="margin: 0; padding: 8px 16px; border-radius: 4px;">Available on Inquiry</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Collections Section -->
+      <section class="bounded-grid" style="border: none; box-shadow: none; padding: 40px 20px; background: #ffffff; border-top: 1px solid var(--line);">
+        <h2 style="font-family: 'Cormorant Garamond', serif; font-size: 2.2rem; font-weight: 400; margin-bottom: 30px; text-align: center; color: var(--charcoal);">Collections</h2>
+        <div class="collection-grid" style="grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 30px;">
+          <article class="collection-card" style="grid-column: span 1; background: #ffffff;">
+            <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa;">
+              <img src="all work/scuptures/beyond the shell/Beyond the Shell 1_medium.webp" alt="Sculptures Collection" style="width: 100%; height: 100%; object-fit: contain;">
+            </div>
+            <div class="piece-copy" style="padding: 20px 0 15px; display: grid; gap: 6px;">
+              <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; font-weight: 400; margin: 0; color: var(--charcoal);">Sculptures</h3>
+              <span style="color: var(--muted); font-size: 0.86rem;">11 Works</span>
+              <a href="sculptures.html" class="button button-secondary" style="margin-top: 10px; width: fit-content; border-radius: 4px; font-size: 0.76rem; padding: 6px 16px;">View Collection</a>
+            </div>
+          </article>
+
+          <article class="collection-card" style="grid-column: span 1; background: #ffffff;">
+            <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa;">
+              <img src="all work/painting/buddha sculpture $105_medium.webp" alt="Paintings Collection" style="width: 100%; height: 100%; object-fit: contain;">
+            </div>
+            <div class="piece-copy" style="padding: 20px 0 15px; display: grid; gap: 6px;">
+              <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; font-weight: 400; margin: 0; color: var(--charcoal);">Paintings</h3>
+              <span style="color: var(--muted); font-size: 0.86rem;">12 Works</span>
+              <a href="paintings.html" class="button button-secondary" style="margin-top: 10px; width: fit-content; border-radius: 4px; font-size: 0.76rem; padding: 6px 16px;">View Collection</a>
+            </div>
+          </article>
+
+          <article class="collection-card" style="grid-column: span 1; background: #ffffff;">
+            <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa;">
+              <img src="all work/jewellery/20 $ each/artistic jewellery 3_medium.webp" alt="Jewellery &  Handmade Creations Collection" style="width: 100%; height: 100%; object-fit: contain;">
+            </div>
+            <div class="piece-copy" style="padding: 20px 0 15px; display: grid; gap: 6px;">
+              <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; font-weight: 400; margin: 0; color: var(--charcoal);">Jewellery &  Handmade Creations</h3>
+              <span style="color: var(--muted); font-size: 0.86rem;">7 Works</span>
+              <a href="jewellery.html" class="button button-secondary" style="margin-top: 10px; width: fit-content; border-radius: 4px; font-size: 0.76rem; padding: 6px 16px;">View Collection</a>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- 4. About the Artist Section -->
+      <section class="bounded-grid" style="border: none; box-shadow: none; padding: 40px 20px; background: #ffffff; border-top: 1px solid var(--line);">
+        <div class="editorial-layout" style="grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 30px; align-items: center;">
+          <div style="grid-column: span 5; display: grid; gap: 20px;">
+            <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--clay); letter-spacing: 0.1em; font-weight: 600;">The Artist</span>
+            <h2 style="font-family: 'Cormorant Garamond', serif; font-size: 2.8rem; font-weight: 400; margin: 0; color: var(--charcoal);">Shweta Jain Maheshwari</h2>
+            <p style="color: var(--muted); line-height: 1.8; font-size: 0.94rem;">
+              Shweta Jain Maheshwari is an Agra-based contemporary artist known for her tactile, hand-built clay structures, highly textured canvases, and heritage-inspired fine-line compositions. Her practice explores natural transitions, personal shield structures, and female creative independence.
+            </p>
+            <a href="story.html" class="button button-secondary" style="width: fit-content; border-radius: 4px; font-size: 0.76rem; padding: 6px 16px;">Read Story</a>
+          </div>
+          <div style="grid-column: span 7; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa;">
+            <img src="assets/story-artist.jpeg" alt="Shweta Jain Maheshwari working in studio" style="width: 100%; height: auto; display: block;" loading="lazy">
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Artist Statement Section -->
+      <section class="bounded-grid" style="border: none; box-shadow: none; padding: 50px 20px; background: #fafafa; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); text-align: center;">
+        <div style="max-width: 800px; margin: 0 auto; display: grid; gap: 20px;">
+          <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--clay); letter-spacing: 0.12em; font-weight: 600; display: block;">Creative Philosophy</span>
+          <p style="font-family: 'Cormorant Garamond', serif; font-size: 1.82rem; font-weight: 400; line-height: 1.5; color: var(--charcoal); font-style: italic; margin: 0;">
+            "Whether working with clay, paint, charcoal, or mixed media, I am drawn to the ways texture, form, and surface can carry emotion and tell stories beyond words. Art should preserve emotion, inspire reflection, and create lasting connections between people, culture, and the world."
+          </p>
+        </div>
+      </section>
+
+      <!-- 6. Public Engagements Section -->
+      <section class="bounded-grid" style="border: none; box-shadow: none; padding: 40px 20px; background: #ffffff; border-bottom: 1px solid var(--line);">
+        <h2 style="font-family: 'Cormorant Garamond', serif; font-size: 2.2rem; font-weight: 400; margin-bottom: 30px; text-align: center; color: var(--charcoal);">Public Engagements</h2>
+        <div class="collection-grid" style="grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px;">
+          <article class="story-card" style="background: #ffffff; border: 1px solid var(--line); border-radius: var(--radius); padding: 25px; display: grid; gap: 10px;">
+            <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--clay); letter-spacing: 0.1em; font-weight: 600;">Agra Art Festival</span>
+            <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.55rem; font-weight: 400; margin: 0; color: var(--charcoal);">Founder & Director</h3>
+            <p style="color: var(--muted); font-size: 0.88rem; line-height: 1.6; margin: 0;">Established the Agra Art Festival to connect local artistic talent with regional communities, featuring master watercolor demonstrations and exhibitions.</p>
+          </article>
+          <article class="story-card" style="background: #ffffff; border: 1px solid var(--line); border-radius: var(--radius); padding: 25px; display: grid; gap: 10px;">
+            <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--clay); letter-spacing: 0.1em; font-weight: 600;">Community Initiative</span>
+            <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.55rem; font-weight: 400; margin: 0; color: var(--charcoal);">Maa Betiyaan</h3>
+            <p style="color: var(--muted); font-size: 0.88rem; line-height: 1.6; margin: 0;">Collaborative visual arts program exploring intergenerational family stories and visual legacies through intricate drawing and sketches.</p>
+          </article>
+          <article class="story-card" style="background: #ffffff; border: 1px solid var(--line); border-radius: var(--radius); padding: 25px; display: grid; gap: 10px;">
+            <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--clay); letter-spacing: 0.1em; font-weight: 600;">Sustainability Campaign</span>
+            <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.55rem; font-weight: 400; margin: 0; color: var(--charcoal);">Art for Nature</h3>
+            <p style="color: var(--muted); font-size: 0.88rem; line-height: 1.6; margin: 0;">Social engagement campaign repurposing discarded studio substrates and raw clay to prompt environmental awareness and responsibility.</p>
+          </article>
+        </div>
+        <div style="text-align: center; margin-top: 25px;">
+          <a href="engagements.html" class="button button-secondary" style="border-radius: 4px; font-size: 0.76rem;">View Public Projects</a>
+        </div>
+      </section>
+
+      <!-- 7. Contact Section -->
+      <section class="bounded-grid" style="border: none; box-shadow: none; padding: 50px 20px; background: #ffffff;">
+        <div class="contact-layout" style="grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 40px; align-items: start;">
+          <div style="grid-column: span 5; display: grid; gap: 20px;">
+            <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--clay); letter-spacing: 0.12em; font-weight: 600; display: block;">Get in Touch</span>
+            <h2 style="font-family: 'Cormorant Garamond', serif; font-size: 2.5rem; font-weight: 400; margin: 0; color: var(--charcoal);">Acquisition & Commission Inquiries</h2>
+            <p style="color: var(--muted); line-height: 1.7; font-size: 0.94rem;">
+              For availability checks, gallery pricing, shipping coordinates, or to schedule a studio visit in Agra, please contact the studio. We aim to reply to all inquiries within 48 hours.
+            </p>
+            <div style="font-size: 0.92rem; display: grid; gap: 8px;">
+              <div><strong>Email:</strong> <a href="mailto:hello.shwetastudio@gmail.com" style="color: var(--charcoal); text-decoration: none; border-bottom: 1px solid var(--line-strong);">hello.shwetastudio@gmail.com</a></div>
+              <div><strong>Studio Address:</strong> <a href="https://maps.google.com/?q=205,+Kailash+Tower,+Sanjay+Place,+Near+ICICI+Bank,+Agra,+Uttar+Pradesh+%E2%80%93+282002,+India" target="_blank" rel="noopener noreferrer" style="color: var(--muted); text-decoration: none; border-bottom: 1px dashed var(--line-strong); transition: color 0.24s;" onmouseover="this.style.color='var(--charcoal)'" onmouseout="this.style.color='var(--muted)'">205, Kailash Tower, Sanjay Place, Agra, India</a> <span style="color: var(--muted); font-size: 0.86rem;">(Worldwide Shipping Available)</span></div>
+              <div><strong>Response Time:</strong> <span style="color: var(--sage); font-weight: 500;">Replies within 48 hours</span></div>
+            </div>
+          </div>
+          <div style="grid-column: span 7; border: 1px solid var(--line); border-radius: var(--radius); padding: 30px; background: #fafafa;">
+            <h4 style="font-family: 'Cormorant Garamond', serif; font-size: 1.5rem; font-weight: 400; margin: 0 0 15px; color: var(--charcoal);">Submit Studio Inquiry</h4>
+            <form id="home-contact-form" onsubmit="sendGeneralInquiry(event)" style="display: grid; gap: 12px;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <input type="text" name="name" placeholder="Your Name" required style="padding: 10px 14px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem; background: #ffffff;">
+                <input type="email" name="email" placeholder="Your Email" required style="padding: 10px 14px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem; background: #ffffff;">
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <input type="text" name="country" placeholder="Your Country" required style="padding: 10px 14px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem; background: #ffffff;">
+                <select name="purpose" required style="padding: 10px 14px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem; color: var(--muted); background: #ffffff;">
+                  <option value="" disabled selected>Select Purpose</option>
+                  <option value="Purchase">Purchase Interest</option>
+                  <option value="Commission">Commission Request</option>
+                  <option value="Exhibition">Exhibition Inquiry</option>
+                  <option value="Collaboration">Collaboration Proposal</option>
+                  <option value="General Inquiry">General Question</option>
+                </select>
+              </div>
+              <textarea name="message" placeholder="Describe the artwork or project of interest..." required rows="4" style="padding: 10px 14px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem; resize: vertical; background: #ffffff;"></textarea>
+              <button type="submit" class="button button-primary" style="width: fit-content; border-radius: 4px; font-size: 0.8rem; cursor: pointer; padding: 10px 24px;">Send Message</button>
+            </form>
+            <p id="home-form-status" style="font-size: 0.86rem; margin: 10px 0 0; font-weight: 500; min-height: 20px;"></p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- AUTO_FOOTER_START -->
+<footer class="site-footer">
+      <div class="footer-copyright-block">
+        <div style="margin-bottom: 12px;">
+          <img src="all work/logo/logo with name.png" alt="Shweta Studio Logo" loading="lazy" style="width: 160px; height: auto; display: block;">
+        </div>
+        <p>Artist: Shweta Jain Maheshwari</p>
+        <p style="font-size: 0.72rem; color: var(--muted); margin-top: 6px; line-height: 1.5; max-width: 500px;">
+          &copy; 2026 Shweta Studio. All artworks, photographs, text, and visual content are protected by copyright. Unauthorized reproduction or commercial use is prohibited.
+        </p>
+      </div>
+      <span>
+        <a href="commission.html" style="margin-right: 15px;">Commission</a>
+        <a href="faq.html" style="margin-right: 15px;">FAQ</a>
+        <a href="works.html">Collections</a>
+      </span>
+    </footer>
+<!-- AUTO_FOOTER_END -->
+<!-- AUTO_FOOTER_END -->
+  </div>
+  <script type="module" src="scripts/main.js"></script>
+</body>
+</html>
