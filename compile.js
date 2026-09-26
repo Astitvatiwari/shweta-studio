@@ -101,6 +101,66 @@ function getWebpPath(originalPath, sizeSuffix = 'medium') {
   return `${dir}/${base}_${sizeSuffix}.webp`;
 }
 
+// Centralized Currency & Pricing Configuration
+const INR_TO_USD_RATE = 90;
+const INTL_PREMIUM_MULTIPLIER = 1.50;
+
+const MINIMUM_INR_PRICE = 4500;
+
+function calculateIntlUsdPrice(inrPriceStr) {
+  if (!inrPriceStr) return null;
+  const num = parseFloat(inrPriceStr.replace(/[^0-9.]/g, ''));
+  if (isNaN(num)) return null;
+  const usd = Math.round((num / INR_TO_USD_RATE) * INTL_PREMIUM_MULTIPLIER);
+  return `$${usd.toLocaleString('en-US')}`;
+}
+
+function calculateDomesticInrPrice(usdPriceStr) {
+  if (!usdPriceStr) return null;
+  const num = parseFloat(usdPriceStr.replace(/[^0-9.]/g, ''));
+  if (isNaN(num)) return null;
+  const rawInr = (num * INR_TO_USD_RATE) / INTL_PREMIUM_MULTIPLIER;
+  const finalInr = Math.max(MINIMUM_INR_PRICE, Math.round(rawInr));
+  return `₹${finalInr.toLocaleString('en-IN')}`;
+}
+
+function parseDimensionValue(str) {
+  if (!str) return null;
+  const match = str.toString().match(/([0-9.]+)\s*(inches|inch|feet|ft|cm)?/i);
+  if (!match) return null;
+  let val = parseFloat(match[1]);
+  const unit = (match[2] || 'inches').toLowerCase();
+  if (unit === 'feet' || unit === 'ft') val *= 12;
+  else if (unit === 'cm') val /= 2.54;
+  return Math.round(val * 10) / 10;
+}
+
+const INCLUDED_DELIVERY_SKUS = new Set([
+  'SS-PT-013',
+  'SS-PT-014',
+  'SS-PT-015',
+  'SS-PT-016',
+  'SS-PT-017',
+  'SS-PT-018',
+  'SS-PT-019',
+  'SS-PT-020'
+]);
+
+const OLDER_PAINTING_SKUS = new Set([
+  'SS-PT-001',
+  'SS-PT-002',
+  'SS-PT-003',
+  'SS-PT-004',
+  'SS-PT-005',
+  'SS-PT-006',
+  'SS-PT-007',
+  'SS-PT-008',
+  'SS-PT-009',
+  'SS-PT-010',
+  'SS-PT-011',
+  'SS-PT-012'
+]);
+
 // Keep track of sitemap links
 const sitemapLinks = [];
 
@@ -148,6 +208,34 @@ artworks.forEach(art => {
     let priceInfo = '';
     if (rel.category === 'Sculptures') {
       priceInfo = `<strong style="font-size: 0.95rem; color: var(--muted); font-weight: 500;">Available on Inquiry</strong>`;
+    } else if (INCLUDED_DELIVERY_SKUS.has(rel.inventoryCode)) {
+      const usdPrice = calculateIntlUsdPrice(rel.price);
+      priceInfo = `
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding: 6px 8px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
+                <div>
+                  <span style="font-size: 0.65rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">India</span>
+                  <strong style="font-size: 0.95rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${rel.price}</strong>
+                  <span style="font-size: 0.65rem; color: var(--sage); font-weight: 500; display: block; line-height: 1.2;">Domestic delivery included</span>
+                </div>
+                <div>
+                  <span style="font-size: 0.65rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">Worldwide</span>
+                  <strong style="font-size: 0.95rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${usdPrice}</strong>
+                  <span style="font-size: 0.65rem; color: var(--sage); font-weight: 500; display: block; line-height: 1.2;">International delivery included</span>
+                </div>
+              </div>`;
+    } else if (OLDER_PAINTING_SKUS.has(rel.inventoryCode)) {
+      const inrPrice = calculateDomesticInrPrice(rel.price);
+      priceInfo = `
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding: 6px 8px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
+                <div>
+                  <span style="font-size: 0.65rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">India</span>
+                  <strong style="font-size: 0.95rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${inrPrice}</strong>
+                </div>
+                <div>
+                  <span style="font-size: 0.65rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">Worldwide</span>
+                  <strong style="font-size: 0.95rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${rel.price}</strong>
+                </div>
+              </div>`;
     } else {
       priceInfo = `<strong style="font-size: 1.15rem; color: var(--clay); font-weight: 600;">${rel.price}</strong>`;
     }
@@ -196,17 +284,131 @@ artworks.forEach(art => {
     backText = 'Jewellery &  Handmade Creations';
   }
 
-  const priceDisplay = art.category === 'Sculptures' ? 'Price available upon request' : art.price;
+  let priceDisplay = '';
+  if (art.category === 'Sculptures') {
+    priceDisplay = `<div style="display: flex; flex-direction: column; gap: 4px; margin-top: 15px; margin-bottom: 10px;">
+            <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 500;">Pricing</span>
+            <strong style="font-size: 1.8rem; color: var(--clay); font-weight: 500;">Price available upon request</strong>
+          </div>`;
+  } else if (art.category === 'Paintings') {
+    let pricingBoxesHtml = '';
+    if (INCLUDED_DELIVERY_SKUS.has(art.inventoryCode)) {
+      const usdPrice = calculateIntlUsdPrice(art.price);
+      pricingBoxesHtml = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+              <div style="background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px;">
+                <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 600; display: block; margin-bottom: 4px;">India</span>
+                <div style="font-size: 1.6rem; color: var(--clay); font-weight: 600; line-height: 1.2;">${art.price}</div>
+                <span style="font-size: 0.78rem; color: var(--sage); font-weight: 500; display: block; margin-top: 5px;">Domestic delivery included</span>
+              </div>
+              <div style="background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px;">
+                <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 600; display: block; margin-bottom: 4px;">Worldwide</span>
+                <div style="font-size: 1.6rem; color: var(--clay); font-weight: 600; line-height: 1.2;">${usdPrice}</div>
+                <span style="font-size: 0.78rem; color: var(--sage); font-weight: 500; display: block; margin-top: 5px;">International delivery included</span>
+              </div>
+            </div>`;
+    } else if (OLDER_PAINTING_SKUS.has(art.inventoryCode)) {
+      const inrPrice = calculateDomesticInrPrice(art.price);
+      pricingBoxesHtml = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+              <div style="background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px;">
+                <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 600; display: block; margin-bottom: 4px;">India</span>
+                <div style="font-size: 1.6rem; color: var(--clay); font-weight: 600; line-height: 1.2;">${inrPrice}</div>
+              </div>
+              <div style="background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px;">
+                <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 600; display: block; margin-bottom: 4px;">Worldwide</span>
+                <div style="font-size: 1.6rem; color: var(--clay); font-weight: 600; line-height: 1.2;">${art.price}</div>
+              </div>
+            </div>`;
+    } else {
+      pricingBoxesHtml = `<strong style="font-size: 1.8rem; color: var(--clay); font-weight: 500;">${art.price}</strong>`;
+    }
+
+    const origW = parseDimensionValue(art.dimensions?.width);
+    const origH = parseDimensionValue(art.dimensions?.height);
+    const origDimsDisplay = (origW && origH) ? `${origW} × ${origH} inches` : (art.dimensions?.display || 'Original Proportions');
+
+    priceDisplay = `
+          <div style="margin-top: 15px; margin-bottom: 12px;">
+            <!-- Selection Option: Original Artwork vs Customize Size -->
+            <div style="display: flex; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--line); padding-bottom: 10px;" role="tablist">
+              <button type="button" id="tab-original-size" onclick="selectPaintingSizeMode('original')" role="tab" aria-selected="true" style="padding: 8px 16px; border-radius: var(--radius); font-size: 0.84rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; border: 1px solid var(--clay); background: var(--clay); color: #ffffff;">
+                Original Artwork
+              </button>
+              <button type="button" id="tab-custom-size" onclick="selectPaintingSizeMode('custom')" role="tab" aria-selected="false" style="padding: 8px 16px; border-radius: var(--radius); font-size: 0.84rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; border: 1px solid var(--line); background: #ffffff; color: var(--charcoal);">
+                Customize Size
+              </button>
+            </div>
+
+            <!-- View 1: Original Artwork (Default) -->
+            <div id="view-original-size" role="tabpanel" style="display: block;">
+              <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
+                <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 500;">Pricing</span>
+                ${pricingBoxesHtml}
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); margin-top: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: var(--sage);"></span>
+                  <strong style="font-size: 0.86rem; color: var(--charcoal); font-weight: 600;">Original artwork &bull; 1 available</strong>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--muted); line-height: 1.4;">
+                  Dispatch within 15 days of order confirmation and payment verification.
+                </div>
+              </div>
+            </div>
+
+            <!-- View 2: Customize Size -->
+            <div id="view-custom-size" data-orig-width="${origW}" data-orig-height="${origH}" role="tabpanel" style="display: none; padding: 16px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
+              <div style="margin-bottom: 12px;">
+                <h4 style="font-family: 'Cormorant Garamond', serif; font-size: 1.35rem; font-weight: 600; margin: 0 0 4px; color: var(--charcoal);">Custom Size</h4>
+                <p style="font-size: 0.82rem; color: var(--muted); margin: 0; line-height: 1.4;">Maintain original artwork proportions (${origDimsDisplay})</p>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div>
+                  <label for="custom-width" style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 6px;">Width (inches)</label>
+                  <input type="number" id="custom-width" value="${origW}" step="any" min="1" oninput="onCustomWidthChange(this.value)" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.9rem; background: #ffffff;">
+                </div>
+                <div>
+                  <label for="custom-height" style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 6px;">Height (inches)</label>
+                  <input type="number" id="custom-height" value="${origH}" step="any" min="1" oninput="onCustomHeightChange(this.value)" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.9rem; background: #ffffff;">
+                </div>
+              </div>
+
+              <div id="aspect-ratio-feedback" style="font-size: 0.8rem; margin-bottom: 14px; min-height: 20px;">
+                <span style="color: var(--sage); display: flex; align-items: center; gap: 4px;">✓ Proportions match original artwork (${origDimsDisplay})</span>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #ffffff; border: 1px solid var(--line); border-radius: 4px; margin-bottom: 16px;">
+                <span style="color: var(--clay); font-size: 0.95rem;">⏱</span>
+                <span style="font-size: 0.82rem; color: var(--charcoal); font-weight: 500;">Production time: Up to 2 months for production</span>
+              </div>
+
+              <button type="button" id="btn-request-custom-size" onclick="submitCustomSizeRequest()" style="width: 100%; padding: 12px 18px; background: var(--clay); color: #ffffff; border: none; border-radius: 4px; font-family: inherit; font-size: 0.86rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: background 0.2s ease;">
+                Request Custom Size
+              </button>
+            </div>
+          </div>`;
+  } else {
+    priceDisplay = `<div style="display: flex; flex-direction: column; gap: 4px; margin-top: 15px; margin-bottom: 10px;">
+            <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 500;">Pricing</span>
+            <strong style="font-size: 1.8rem; color: var(--clay); font-weight: 500;">${art.price}</strong>
+          </div>`;
+  }
   const statusClass = 'status-' + art.availability.toLowerCase().replace(/\s+/g, '-');
 
-  const dimsText = 'Available on Inquiry';
+  const dimsText = art.dimensions?.display || 'Available on Inquiry';
   const weightText = 'Available on Inquiry';
   const packagingText = art.shipping?.packaging || 'Museum Grade Packaging';
   const fragileText = art.shipping?.fragile || 'Yes';
   const displayCategory = art.category === 'Jewellery' ? 'Jewellery &  Handmade Creations' : art.category;
 
   let shippingNoticeText = '';
-  if (art.category === 'Sculptures') {
+  if (INCLUDED_DELIVERY_SKUS.has(art.inventoryCode)) {
+    shippingNoticeText = `Every painting is carefully packed using protective archival packaging to ensure safe domestic and international delivery.<br><br>Available artworks are generally dispatched within 7–10 business days after order confirmation and payment verification. Commissioned or custom paintings may require additional production time.<br><br>Domestic delivery within India is included in the INR price.<br><br>International delivery is included in the USD price for customers outside India.`;
+  } else if (art.shipping?.notice) {
+    shippingNoticeText = art.shipping.notice;
+  } else if (art.category === 'Sculptures') {
     shippingNoticeText = `Every sculpture is carefully handcrafted and securely packaged using museum-grade protective materials for domestic and international shipping.<br><br>As most sculptures are handmade or made to order, orders are typically prepared and dispatched within 20 business days after order confirmation and payment verification.<br><br>Shipping and export charges are calculated individually for each order based on the artwork's dimensions, weight, destination country, packaging requirements, and preferred shipping method. A detailed shipping quotation will be provided during the inquiry process before order confirmation.<br><br>Shipping and export charges are calculated separately based on the artwork size, destination, and packaging requirements. Delivery times may vary depending on the destination country, customs clearance, and courier services.<br><br>Customers are responsible for applicable shipping charges, customs duties, taxes, and import regulations in their respective countries.`;
   } else if (art.category === 'Paintings') {
     shippingNoticeText = `Every painting is carefully packed using protective archival packaging to ensure safe domestic and international delivery.<br><br>Available artworks are generally dispatched within 7–10 business days after order confirmation and payment verification. Commissioned or custom paintings may require additional production time.<br><br>Shipping and export charges are calculated individually for each order based on the artwork's dimensions, weight, destination country, packaging requirements, and preferred shipping method. A detailed shipping quotation will be provided during the inquiry process before order confirmation.<br><br>Shipping charges are calculated separately based on destination and packaging requirements.`;
@@ -243,7 +445,10 @@ artworks.forEach(art => {
 
   const artistName = art.artist || 'Shweta Jain Maheshwari';
   const metaTitle = `${art.title} | ${art.inventoryCode} | SHWETA STUDIO`;
-  const metaDesc = `${art.title} is an original ${art.medium} artwork (${art.inventoryCode}) by contemporary artist ${artistName}. Dimensions: ${dimsText}. ${art.description.substring(0, 120)}...`;
+  const descriptionText = art.description || '';
+  const metaDesc = descriptionText
+    ? `${art.title} is an original ${art.medium} artwork (${art.inventoryCode}) by contemporary artist ${artistName}. Dimensions: ${dimsText}. ${descriptionText.substring(0, 120)}...`
+    : `${art.title} is an original ${art.medium} artwork (${art.inventoryCode}) by contemporary artist ${artistName}. Dimensions: ${dimsText}.`;
 
   const mainImgLarge = getWebpPath(art.images[0], 'large');
   const mainImgMedium = getWebpPath(art.images[0], 'medium');
@@ -284,9 +489,9 @@ artworks.forEach(art => {
         "@type": "VisualArtwork",
         "name": art.title,
         "image": `https://swetastudio.art/${mainImgLarge}`,
-        "description": art.description.substring(0, 150),
+        "description": (descriptionText || `${art.title} is an original ${art.medium} artwork (${art.inventoryCode}) by contemporary artist ${artistName}.`).substring(0, 150),
         "artMedium": art.medium,
-        "artworkSurface": art.category === 'Paintings' ? 'Canvas' : 'Clay',
+        "artworkSurface": art.artworkSurface ? art.artworkSurface : (art.category === 'Paintings' ? (art.medium.toLowerCase().includes('paper') ? 'Paper' : art.medium.toLowerCase().includes('cloth') ? 'Cloth' : (art.medium.toLowerCase().includes('talapatra') || art.medium.toLowerCase().includes('palm')) ? 'Palm Leaf' : (art.medium.toLowerCase() === 'pencil colour' || art.medium.toLowerCase() === 'modern painting' ? undefined : 'Canvas')) : 'Clay'),
         "width": art.dimensions.width,
         "height": art.dimensions.height,
         "depth": art.dimensions.depth,
@@ -297,8 +502,8 @@ artworks.forEach(art => {
         },
         "offers": art.price ? {
           "@type": "Offer",
-          "price": art.price.replace('$', '').replace(',', ''),
-          "priceCurrency": "USD",
+          "price": art.price.includes('₹') ? art.price.replace(/[^0-9.]/g, '') : art.price.replace('$', '').replace(',', ''),
+          "priceCurrency": art.price.includes('₹') ? "INR" : "USD",
           "availability": art.availability === 'Available' ? "https://schema.org/InStock" : "https://schema.org/OutOfStock"
         } : undefined
       }
@@ -449,6 +654,39 @@ pagesToCompile.forEach(page => {
         const imgMedium = getWebpPath(art.images[0], 'medium');
         const statusClass = 'status-' + art.availability.toLowerCase().replace(/\s+/g, '-');
         
+        let priceHtml = '';
+        if (INCLUDED_DELIVERY_SKUS.has(art.inventoryCode)) {
+          const usdPrice = calculateIntlUsdPrice(art.price);
+          priceHtml = `
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding: 8px 10px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
+                <div>
+                  <span style="font-size: 0.68rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">India</span>
+                  <strong style="font-size: 1.05rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${art.price}</strong>
+                  <span style="font-size: 0.68rem; color: var(--sage); font-weight: 500; display: block; line-height: 1.2;">Domestic delivery included</span>
+                </div>
+                <div>
+                  <span style="font-size: 0.68rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">Worldwide</span>
+                  <strong style="font-size: 1.05rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${usdPrice}</strong>
+                  <span style="font-size: 0.68rem; color: var(--sage); font-weight: 500; display: block; line-height: 1.2;">International delivery included</span>
+                </div>
+              </div>`;
+        } else if (OLDER_PAINTING_SKUS.has(art.inventoryCode)) {
+          const inrPrice = calculateDomesticInrPrice(art.price);
+          priceHtml = `
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding: 8px 10px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
+                <div>
+                  <span style="font-size: 0.68rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">India</span>
+                  <strong style="font-size: 1.05rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${inrPrice}</strong>
+                </div>
+                <div>
+                  <span style="font-size: 0.68rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">Worldwide</span>
+                  <strong style="font-size: 1.05rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${art.price}</strong>
+                </div>
+              </div>`;
+        } else {
+          priceHtml = `<strong style="font-size: 1.15rem; font-weight: 600; color: var(--clay);">${art.price}</strong>`;
+        }
+
         cardsHtml += `
         <article class="collection-card" data-reveal style="background: #ffffff;">
           <a href="pieces/${art.slug}.html" style="text-decoration: none; color: inherit; display: grid;">
@@ -458,7 +696,7 @@ pagesToCompile.forEach(page => {
             <div class="piece-copy" style="padding: 20px 0 15px;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">${art.inventoryCode} • ${art.medium}</span>
               <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">${art.title}</h3>
-              <strong style="font-size: 1.15rem; font-weight: 600; color: var(--clay);">${art.price}</strong>
+              ${priceHtml}
               <span class="status-tag ${statusClass}" style="margin-top: 8px;">${art.availability}</span>
               <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">Request Availability</span>
             </div>
@@ -550,6 +788,10 @@ pagesToCompile.forEach(page => {
       const paintCover = getWebpPath(artworks.find(a => a.id === 11).images[0], 'medium');
       const jewelCover = getWebpPath(artworks.find(a => a.id === 26).images[0], 'medium');
       
+      const sculpCount = artworks.filter(a => a.category === 'Sculptures').length;
+      const paintCount = artworks.filter(a => a.category === 'Paintings').length;
+      const jewelCount = artworks.filter(a => a.category === 'Jewellery').length;
+      
       cardsHtml = `
       <section class="collection-grid bounded-grid works-category-grid" style="background: #ffffff; border: none; box-shadow: none; gap: 30px;">
         <article class="collection-card" data-reveal style="background: #ffffff;">
@@ -558,7 +800,7 @@ pagesToCompile.forEach(page => {
           </div>
           <div class="piece-copy" style="padding: 20px 0 15px; display: grid; gap: 6px;">
             <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; font-weight: 400; margin: 0; color: var(--charcoal);">Sculptures</h3>
-            <span style="color: var(--muted); font-size: 0.86rem;">11 Works</span>
+            <span style="color: var(--muted); font-size: 0.86rem;">${sculpCount} Works</span>
             <a href="sculptures.html" class="button button-secondary" style="margin-top: 10px; width: fit-content; border-radius: 4px; font-size: 0.76rem; padding: 6px 16px;">View Collection</a>
           </div>
         </article>
@@ -569,7 +811,7 @@ pagesToCompile.forEach(page => {
           </div>
           <div class="piece-copy" style="padding: 20px 0 15px; display: grid; gap: 6px;">
             <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; font-weight: 400; margin: 0; color: var(--charcoal);">Paintings</h3>
-            <span style="color: var(--muted); font-size: 0.86rem;">12 Works</span>
+            <span style="color: var(--muted); font-size: 0.86rem;">${paintCount} Works</span>
             <a href="paintings.html" class="button button-secondary" style="margin-top: 10px; width: fit-content; border-radius: 4px; font-size: 0.76rem; padding: 6px 16px;">View Collection</a>
           </div>
         </article>
@@ -580,7 +822,7 @@ pagesToCompile.forEach(page => {
           </div>
           <div class="piece-copy" style="padding: 20px 0 15px; display: grid; gap: 6px;">
             <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; font-weight: 400; margin: 0; color: var(--charcoal);">Jewellery &  Handmade Creations</h3>
-            <span style="color: var(--muted); font-size: 0.86rem;">7 Works</span>
+            <span style="color: var(--muted); font-size: 0.86rem;">${jewelCount} Works</span>
             <a href="jewellery.html" class="button button-secondary" style="margin-top: 10px; width: fit-content; border-radius: 4px; font-size: 0.76rem; padding: 6px 16px;">View Collection</a>
           </div>
         </article>

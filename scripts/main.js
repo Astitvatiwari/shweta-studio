@@ -16,6 +16,7 @@ import { initScrollReveal } from './animations.js';
 // Import modules with side effects (attaching window events)
 import './gallery.js';
 import './forms.js';
+import './custom-size.js';
 
 /* ==========================================
    INITIALIZATION

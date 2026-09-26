@@ -819,6 +819,318 @@ const artworks = [
     view360Url: "",
     makingPhotos: []
   },
+  {
+    id: 33,
+    inventoryCode: "SS-PT-013",
+    slug: "whispers-of-the-river",
+    title: "Whispers of the River",
+    artworkType: "Watercolour Painting",
+    category: "Paintings",
+    collection: "Paintings",
+    description: "",
+    medium: "Watercolour on Paper",
+    dimensions: {
+      height: "17 inches",
+      width: "12.5 inches",
+      depth: "Available on request",
+      weight: "Available on request",
+      display: "17 × 12.5 inches"
+    },
+    year: "2026",
+    availability: "Available",
+    price: "₹9,000",
+    images: [
+      "all work/painting/Whispers of the River.jpeg"
+    ],
+    shipping: {
+      fragile: "No",
+      shipsWorldwide: "Yes",
+      packaging: "Museum Grade Foam Box"
+    },
+    exhibitions: [],
+    awards: [],
+    press: [],
+    certificates: "Signed Certificate of Authenticity provided",
+    edition: "Unique (1/1)",
+    instagramLink: "https://instagram.com/shwetajain.art",
+    videoUrl: "",
+    view360Url: "",
+    makingPhotos: []
+  },
+  {
+    id: 34,
+    inventoryCode: "SS-PT-014",
+    slug: "pichhvai",
+    title: "Pichhvai",
+    artist: "Shweta Jain Maheshwari",
+    artworkType: "Traditional Indian Painting",
+    category: "Paintings",
+    collection: "Paintings",
+    description: "Pichhvai is a traditional devotional painting executed in tempera on cloth. The composition features a centrally positioned deity figure surrounded by richly detailed floral, ornamental, and decorative elements set against a vivid red background. The detailed ornamentation, symmetrical composition, and vibrant colours create a sense of devotion, celebration, and visual richness.",
+    medium: "Tempera on cloth",
+    dimensions: {
+      height: "26 inches",
+      width: "19.5 inches",
+      depth: "Available on request",
+      weight: "Available on request",
+      display: "26 × 19.5 inches"
+    },
+    year: "2026",
+    availability: "Available",
+    price: "₹97,000",
+    images: [
+      "all work/painting/Pichhvai.jpeg"
+    ],
+    shipping: {
+      fragile: "No",
+      shipsWorldwide: "Yes",
+      packaging: "Museum Grade Foam Box"
+    },
+    exhibitions: [],
+    awards: [],
+    press: [],
+    certificates: "Signed Certificate of Authenticity provided",
+    edition: "Unique (1/1)",
+    instagramLink: "https://instagram.com/shwetajain.art",
+    videoUrl: "",
+    view360Url: "",
+    makingPhotos: []
+  },
+  {
+    id: 35,
+    inventoryCode: "SS-PT-015",
+    slug: "patt-chitra",
+    title: "Patt Chitra",
+    artist: "Shweta Jain Maheshwari",
+    artworkType: "Traditional Indian Painting",
+    category: "Paintings",
+    collection: "Paintings",
+    description: "Patt Chitra is a traditional devotional painting executed in watercolour on paper. The intricate composition depicts a central blue-skinned divine figure surrounded by multiple elaborately dressed figures, set against vibrant red and green fields, embellished with floral motifs, and framed by an ornate decorative border. The detailed ornamentation and classical arrangement reflect the time-honored visual heritage of traditional Indian Pattachitra art.",
+    medium: "Watercolour on paper",
+    dimensions: {
+      height: "34 inches",
+      width: "26 inches",
+      depth: "Available on request",
+      weight: "Available on request",
+      display: "34 × 26 inches"
+    },
+    year: "2026",
+    availability: "Available",
+    price: "₹30,000",
+    images: [
+      "all work/painting/Patt chitra.jpeg"
+    ],
+    shipping: {
+      fragile: "No",
+      shipsWorldwide: "Yes",
+      packaging: "Museum Grade Foam Box"
+    },
+    exhibitions: [],
+    awards: [],
+    press: [],
+    certificates: "Signed Certificate of Authenticity provided",
+    edition: "Unique (1/1)",
+    instagramLink: "https://instagram.com/shwetajain.art",
+    videoUrl: "",
+    view360Url: "",
+    makingPhotos: []
+  },
+  {
+    id: 36,
+    inventoryCode: "SS-PT-016",
+    slug: "odisha-talapatra",
+    title: "Odisha Talapatra",
+    artist: "Shweta Jain Maheshwari",
+    artworkType: "Traditional Indian Painting",
+    category: "Paintings",
+    collection: "Paintings",
+    description: "Odisha Talapatra is an original traditional Talapatra painting from Odisha (artist reference: 'Odissa talapatra painting (Original)'), rendered with intricate linework on a natural palm-leaf surface. The composition features a traditionally depicted figure surrounded by detailed botanical motifs and an elaborate ornamental border. The monochromatic natural surface and fine incised detailing emphasize the craftsmanship and traditional character of the work.",
+    medium: "Talapatra painting",
+    dimensions: {
+      height: "13.5 inches",
+      width: "11.5 inches",
+      depth: "Available on request",
+      weight: "Available on request",
+      display: "13.5 × 11.5 inches"
+    },
+    year: "2026",
+    availability: "Available",
+    price: "₹30,000",
+    images: [
+      "all work/painting/Odisha Talapatra.jpeg"
+    ],
+    shipping: {
+      fragile: "No",
+      shipsWorldwide: "Yes",
+      packaging: "Museum Grade Foam Box"
+    },
+    exhibitions: [],
+    awards: [],
+    press: [],
+    certificates: "Signed Certificate of Authenticity provided",
+    edition: "Unique (1/1)",
+    instagramLink: "https://instagram.com/shwetajain.art",
+    videoUrl: "",
+    view360Url: "",
+    makingPhotos: []
+  },
+  {
+    id: 37,
+    inventoryCode: "SS-PT-017",
+    slug: "blooming-heritage",
+    title: "Blooming Heritage",
+    artist: "Shweta Jain Maheshwari",
+    artworkType: "Traditional Indian Painting",
+    category: "Paintings",
+    collection: "Paintings",
+    description: "Blooming Heritage is a traditional Kalamkari painting on cloth, featuring an ornamental floral composition with stylized flowers, leaves, and flowing botanical forms. Executed with original colours and intricate decorative detailing, the work reflects the rich handcrafted character rooted in the visual traditions of Kalamkari from Andhra Pradesh and Telangana.",
+    medium: "Kalamkari on cloth",
+    dimensions: {
+      height: "13.5 inches",
+      width: "13.5 inches",
+      depth: "Available on request",
+      weight: "Available on request",
+      display: "13.5 × 13.5 inches"
+    },
+    year: "2026",
+    availability: "Available",
+    price: "₹10,000",
+    images: [
+      "all work/painting/Blooming Heritage.jpeg"
+    ],
+    shipping: {
+      fragile: "No",
+      shipsWorldwide: "Yes",
+      packaging: "Museum Grade Foam Box"
+    },
+    exhibitions: [],
+    awards: [],
+    press: [],
+    certificates: "Signed Certificate of Authenticity provided",
+    edition: "Unique (1/1)",
+    instagramLink: "https://instagram.com/shwetajain.art",
+    videoUrl: "",
+    view360Url: "",
+    makingPhotos: []
+  },
+  {
+    id: 38,
+    inventoryCode: "SS-PT-018",
+    slug: "the-many-selves",
+    title: "The Many Selves",
+    artist: "Shweta Jain Maheshwari",
+    artworkType: "Watercolour Painting",
+    category: "Paintings",
+    collection: "Paintings",
+    description: "The Many Selves is a stylized watercolour painting on paper presenting a composition of multiple human faces arranged together, accompanied by an open book and surrounded by decorative botanical and geometric elements. The varied expressions, colours, and overlapping forms create a visual exploration of individuality, plurality, and the different aspects of identity that can exist within a single composition.",
+    medium: "Watercolour on paper",
+    dimensions: {
+      height: "20.5 inches",
+      width: "17 inches",
+      depth: "Available on request",
+      weight: "Available on request",
+      display: "20.5 × 17 inches"
+    },
+    year: "2026",
+    availability: "Available",
+    price: "₹4,500",
+    images: [
+      "all work/painting/The Many Selves.jpeg"
+    ],
+    shipping: {
+      fragile: "No",
+      shipsWorldwide: "Yes",
+      packaging: "Museum Grade Foam Box"
+    },
+    exhibitions: [],
+    awards: [],
+    press: [],
+    certificates: "Signed Certificate of Authenticity provided",
+    edition: "Unique (1/1)",
+    instagramLink: "https://instagram.com/shwetajain.art",
+    videoUrl: "",
+    view360Url: "",
+    makingPhotos: []
+  },
+  {
+    id: 39,
+    inventoryCode: "SS-PT-019",
+    slug: "flourish",
+    title: "Flourish",
+    artist: "Shweta Jain Maheshwari",
+    artworkType: "Pencil Colour Artwork",
+    category: "Paintings",
+    collection: "Paintings",
+    quote: "Even through the cracks, life finds a way to bloom.",
+    description: "<em>“Even through the cracks, life finds a way to bloom.”</em><br><br>\"Flourish\" is a reflection of how life finds its way to grow and bloom, even in the most unexpected places. The delicate flowers emerging from a weathered stone window symbolize hope, resilience, and the beauty of growth.<br><br>The artwork portrays a simple yet powerful thought — true beauty does not need perfect surroundings to exist. Just like these flowers bloom amidst the roughness of stone, we too can grow, evolve, and flourish despite the challenges around us.<br><br>The contrast between the strength of stone and the softness of flowers represents the balance between resilience and gentleness, reminding us that growth can happen anywhere, when there is hope.",
+    medium: "Pencil Colour",
+    dimensions: {
+      height: "2.5 Feet",
+      width: "2 Feet",
+      depth: "Available on request",
+      weight: "Available on request",
+      display: "2 × 2.5 Feet"
+    },
+    year: "2026",
+    availability: "Available",
+    price: "₹5,000",
+    images: [
+      "all work/painting/Flourish.jpeg"
+    ],
+    shipping: {
+      fragile: "No",
+      shipsWorldwide: "Yes",
+      packaging: "Museum Grade Foam Box"
+    },
+    exhibitions: [],
+    awards: [],
+    press: [],
+    certificates: "Signed Certificate of Authenticity provided",
+    edition: "Unique (1/1)",
+    instagramLink: "https://instagram.com/shwetajain.art",
+    videoUrl: "",
+    view360Url: "",
+    makingPhotos: []
+  },
+  {
+    id: 40,
+    inventoryCode: "SS-PT-020",
+    slug: "between-two-worlds",
+    title: "Between Two Worlds",
+    artist: "Shweta Jain Maheshwari",
+    artworkType: "Modern Painting",
+    category: "Paintings",
+    collection: "Paintings",
+    description: "Between Two Worlds presents a stylized human figure in a contemplative composition, rendered in bold pink, purple, green, blue, and earthy tones. Organic forms and flowing lines interact with the figure against a dark background, creating a visually layered contemporary composition.",
+    medium: "Modern Painting",
+    dimensions: {
+      height: "19 inches",
+      width: "14 inches",
+      depth: "Available on request",
+      weight: "Available on request",
+      display: "19 × 14 inches"
+    },
+    year: "2026",
+    availability: "Available",
+    price: "₹7,000",
+    images: [
+      "all work/painting/Between Two Worlds.jpeg"
+    ],
+    shipping: {
+      fragile: "No",
+      shipsWorldwide: "Yes",
+      packaging: "Museum Grade Foam Box"
+    },
+    exhibitions: [],
+    awards: [],
+    press: [],
+    certificates: "Signed Certificate of Authenticity provided",
+    edition: "Unique (1/1)",
+    instagramLink: "https://instagram.com/shwetajain.art",
+    videoUrl: "",
+    view360Url: "",
+    makingPhotos: []
+  },
   // Jewellery
   {
     id: 23,

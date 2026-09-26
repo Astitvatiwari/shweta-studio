@@ -177,9 +177,76 @@
           </div>
 
           <!-- Price Section -->
-          <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 15px; margin-bottom: 10px;">
-            <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 500;">Pricing</span>
-            <strong style="font-size: 1.8rem; color: var(--clay); font-weight: 500;">$1,053</strong>
+          
+          <div style="margin-top: 15px; margin-bottom: 12px;">
+            <!-- Selection Option: Original Artwork vs Customize Size -->
+            <div style="display: flex; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--line); padding-bottom: 10px;" role="tablist">
+              <button type="button" id="tab-original-size" onclick="selectPaintingSizeMode('original')" role="tab" aria-selected="true" style="padding: 8px 16px; border-radius: var(--radius); font-size: 0.84rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; border: 1px solid var(--clay); background: var(--clay); color: #ffffff;">
+                Original Artwork
+              </button>
+              <button type="button" id="tab-custom-size" onclick="selectPaintingSizeMode('custom')" role="tab" aria-selected="false" style="padding: 8px 16px; border-radius: var(--radius); font-size: 0.84rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; border: 1px solid var(--line); background: #ffffff; color: var(--charcoal);">
+                Customize Size
+              </button>
+            </div>
+
+            <!-- View 1: Original Artwork (Default) -->
+            <div id="view-original-size" role="tabpanel" style="display: block;">
+              <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
+                <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 500;">Pricing</span>
+                
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+              <div style="background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px;">
+                <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 600; display: block; margin-bottom: 4px;">India</span>
+                <div style="font-size: 1.6rem; color: var(--clay); font-weight: 600; line-height: 1.2;">₹63,180</div>
+              </div>
+              <div style="background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px;">
+                <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 600; display: block; margin-bottom: 4px;">Worldwide</span>
+                <div style="font-size: 1.6rem; color: var(--clay); font-weight: 600; line-height: 1.2;">$1,053</div>
+              </div>
+            </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); margin-top: 10px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: var(--sage);"></span>
+                  <strong style="font-size: 0.86rem; color: var(--charcoal); font-weight: 600;">Original artwork &bull; 1 available</strong>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--muted); line-height: 1.4;">
+                  Dispatch within 15 days of order confirmation and payment verification.
+                </div>
+              </div>
+            </div>
+
+            <!-- View 2: Customize Size -->
+            <div id="view-custom-size" data-orig-width="22" data-orig-height="30" role="tabpanel" style="display: none; padding: 16px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
+              <div style="margin-bottom: 12px;">
+                <h4 style="font-family: 'Cormorant Garamond', serif; font-size: 1.35rem; font-weight: 600; margin: 0 0 4px; color: var(--charcoal);">Custom Size</h4>
+                <p style="font-size: 0.82rem; color: var(--muted); margin: 0; line-height: 1.4;">Maintain original artwork proportions (22 × 30 inches)</p>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div>
+                  <label for="custom-width" style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 6px;">Width (inches)</label>
+                  <input type="number" id="custom-width" value="22" step="any" min="1" oninput="onCustomWidthChange(this.value)" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.9rem; background: #ffffff;">
+                </div>
+                <div>
+                  <label for="custom-height" style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 6px;">Height (inches)</label>
+                  <input type="number" id="custom-height" value="30" step="any" min="1" oninput="onCustomHeightChange(this.value)" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.9rem; background: #ffffff;">
+                </div>
+              </div>
+
+              <div id="aspect-ratio-feedback" style="font-size: 0.8rem; margin-bottom: 14px; min-height: 20px;">
+                <span style="color: var(--sage); display: flex; align-items: center; gap: 4px;">✓ Proportions match original artwork (22 × 30 inches)</span>
+              </div>
+
+              <div style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #ffffff; border: 1px solid var(--line); border-radius: 4px; margin-bottom: 16px;">
+                <span style="color: var(--clay); font-size: 0.95rem;">⏱</span>
+                <span style="font-size: 0.82rem; color: var(--charcoal); font-weight: 500;">Production time: Up to 2 months for production</span>
+              </div>
+
+              <button type="button" id="btn-request-custom-size" onclick="submitCustomSizeRequest()" style="width: 100%; padding: 12px 18px; background: var(--clay); color: #ffffff; border: none; border-radius: 4px; font-family: inherit; font-size: 0.86rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: background 0.2s ease;">
+                Request Custom Size
+              </button>
+            </div>
           </div>
 
           
@@ -254,7 +321,17 @@
             <div class="piece-copy" style="padding: 15px 0;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 4px;">Paintings</span>
               <h4 style="font-size: 1.15rem; font-weight: 500; margin: 0 0 6px; color: var(--charcoal);">Bloom in Stillness</h4>
-              <strong style="font-size: 1.15rem; color: var(--clay); font-weight: 600;">$105</strong>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding: 6px 8px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
+                <div>
+                  <span style="font-size: 0.65rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">India</span>
+                  <strong style="font-size: 0.95rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">₹6,300</strong>
+                </div>
+                <div>
+                  <span style="font-size: 0.65rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">Worldwide</span>
+                  <strong style="font-size: 0.95rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">$105</strong>
+                </div>
+              </div>
             </div>
           </a>
         </article>
@@ -266,7 +343,17 @@
             <div class="piece-copy" style="padding: 15px 0;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 4px;">Paintings</span>
               <h4 style="font-size: 1.15rem; font-weight: 500; margin: 0 0 6px; color: var(--charcoal);">Whispers of Freedom</h4>
-              <strong style="font-size: 1.15rem; color: var(--clay); font-weight: 600;">$80</strong>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding: 6px 8px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
+                <div>
+                  <span style="font-size: 0.65rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">India</span>
+                  <strong style="font-size: 0.95rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">₹4,800</strong>
+                </div>
+                <div>
+                  <span style="font-size: 0.65rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">Worldwide</span>
+                  <strong style="font-size: 0.95rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">$80</strong>
+                </div>
+              </div>
             </div>
           </a>
         </article>
@@ -278,7 +365,17 @@
             <div class="piece-copy" style="padding: 15px 0;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 4px;">Paintings</span>
               <h4 style="font-size: 1.15rem; font-weight: 500; margin: 0 0 6px; color: var(--charcoal);">Morning Bloom</h4>
-              <strong style="font-size: 1.15rem; color: var(--clay); font-weight: 600;">$105</strong>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding: 6px 8px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
+                <div>
+                  <span style="font-size: 0.65rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">India</span>
+                  <strong style="font-size: 0.95rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">₹6,300</strong>
+                </div>
+                <div>
+                  <span style="font-size: 0.65rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">Worldwide</span>
+                  <strong style="font-size: 0.95rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">$105</strong>
+                </div>
+              </div>
             </div>
           </a>
         </article>
