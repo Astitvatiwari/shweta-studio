@@ -181,7 +181,7 @@ const requiredDetailTags = [
   '{{STATUS_CLASS}}', '{{BACK_LINK}}', '{{BACK_TEXT}}', 
   '{{THUMBNAIL_GALLERY}}', '{{RELATED_WORKS}}', '{{META_TITLE}}', 
   '{{META_DESCRIPTION}}', '{{SCHEMA_JSON}}', '{{SHIPPING_NOTICE}}', '{{ARTIST}}',
-  '{{FEATURED_BADGE}}', '{{ARTIST_INFO}}'
+  '{{FEATURED_BADGE}}', '{{ARTIST_INFO}}', '{{OG_IMAGE}}', '{{IMAGE_ALT}}'
 ];
 
 // Check all required tags in template before rendering
@@ -199,6 +199,8 @@ artworks.forEach(art => {
     console.error('[ERROR] Missing required metadata fields for ID: ' + art.id);
     process.exit(1);
   }
+
+  const artistName = art.artist || 'Shweta Jain Maheshwari';
 
   // Related works block (rendered at compile time for static page)
   const related = getRelatedWorks(art, artworks);
@@ -230,10 +232,12 @@ artworks.forEach(art => {
                 <div>
                   <span style="font-size: 0.65rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">India</span>
                   <strong style="font-size: 0.95rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${inrPrice}</strong>
+                  <span style="font-size: 0.65rem; color: var(--sage); font-weight: 500; display: block; line-height: 1.2;">Domestic delivery included</span>
                 </div>
                 <div>
                   <span style="font-size: 0.65rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">Worldwide</span>
                   <strong style="font-size: 0.95rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${rel.price}</strong>
+                  <span style="font-size: 0.65rem; color: var(--sage); font-weight: 500; display: block; line-height: 1.2;">International delivery included</span>
                 </div>
               </div>`;
     } else {
@@ -243,7 +247,7 @@ artworks.forEach(art => {
         <article class="collection-card" style="grid-column: span 1; background: #ffffff;">
           <a href="${rel.slug}.html" style="text-decoration: none; color: inherit; display: grid;">
             <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa; position: relative;">
-               <img class="image-primary" src="../${imgMedium}" alt="${rel.title} by ${rel.artist || 'Shweta Jain Maheshwari'}" style="width: 100%; height: 100%; object-fit: contain; display: block;" loading="lazy">
+               <img class="image-primary" src="../${imgMedium}" alt="${rel.title} — original ${rel.medium.toLowerCase()} by ${rel.artist || 'Shweta Jain Maheshwari'}" style="width: 100%; height: 100%; object-fit: contain; display: block;" loading="lazy">
             </div>
             <div class="piece-copy" style="padding: 15px 0;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 4px;">${rel.category}</span>
@@ -264,7 +268,7 @@ artworks.forEach(art => {
       const borderStyle = idx === 0 ? 'border: 2px solid var(--clay);' : 'border: 1px solid var(--line);';
       thumbHtml += `
             <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; ${borderStyle} transition: border-color 0.24s;" onclick="swapImage(this, '../${imgMedium}')">
-              <img src="../${imgThumb}" alt="${art.title} view ${idx+1}" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+              <img src="../${imgThumb}" alt="${art.title} — view ${idx+1} by ${artistName}" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
             </div>`;
     });
     thumbHtml += `</div>`;
@@ -314,10 +318,12 @@ artworks.forEach(art => {
               <div style="background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px;">
                 <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 600; display: block; margin-bottom: 4px;">India</span>
                 <div style="font-size: 1.6rem; color: var(--clay); font-weight: 600; line-height: 1.2;">${inrPrice}</div>
+                <span style="font-size: 0.78rem; color: var(--sage); font-weight: 500; display: block; margin-top: 5px;">Domestic delivery included</span>
               </div>
               <div style="background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px;">
                 <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 600; display: block; margin-bottom: 4px;">Worldwide</span>
                 <div style="font-size: 1.6rem; color: var(--clay); font-weight: 600; line-height: 1.2;">${art.price}</div>
+                <span style="font-size: 0.78rem; color: var(--sage); font-weight: 500; display: block; margin-top: 5px;">International delivery included</span>
               </div>
             </div>`;
     } else {
@@ -404,14 +410,12 @@ artworks.forEach(art => {
   const displayCategory = art.category === 'Jewellery' ? 'Jewellery &  Handmade Creations' : art.category;
 
   let shippingNoticeText = '';
-  if (INCLUDED_DELIVERY_SKUS.has(art.inventoryCode)) {
+  if (art.category === 'Paintings') {
     shippingNoticeText = `Every painting is carefully packed using protective archival packaging to ensure safe domestic and international delivery.<br><br>Available artworks are generally dispatched within 7–10 business days after order confirmation and payment verification. Commissioned or custom paintings may require additional production time.<br><br>Domestic delivery within India is included in the INR price.<br><br>International delivery is included in the USD price for customers outside India.`;
   } else if (art.shipping?.notice) {
     shippingNoticeText = art.shipping.notice;
   } else if (art.category === 'Sculptures') {
     shippingNoticeText = `Every sculpture is carefully handcrafted and securely packaged using museum-grade protective materials for domestic and international shipping.<br><br>As most sculptures are handmade or made to order, orders are typically prepared and dispatched within 20 business days after order confirmation and payment verification.<br><br>Shipping and export charges are calculated individually for each order based on the artwork's dimensions, weight, destination country, packaging requirements, and preferred shipping method. A detailed shipping quotation will be provided during the inquiry process before order confirmation.<br><br>Shipping and export charges are calculated separately based on the artwork size, destination, and packaging requirements. Delivery times may vary depending on the destination country, customs clearance, and courier services.<br><br>Customers are responsible for applicable shipping charges, customs duties, taxes, and import regulations in their respective countries.`;
-  } else if (art.category === 'Paintings') {
-    shippingNoticeText = `Every painting is carefully packed using protective archival packaging to ensure safe domestic and international delivery.<br><br>Available artworks are generally dispatched within 7–10 business days after order confirmation and payment verification. Commissioned or custom paintings may require additional production time.<br><br>Shipping and export charges are calculated individually for each order based on the artwork's dimensions, weight, destination country, packaging requirements, and preferred shipping method. A detailed shipping quotation will be provided during the inquiry process before order confirmation.<br><br>Shipping charges are calculated separately based on destination and packaging requirements.`;
   } else if (art.category === 'Jewellery') {
     shippingNoticeText = `Jewellery and handmade creations are carefully packaged for safe domestic and international shipping.<br><br>Items that are in stock are generally dispatched within 3–7 business days after order confirmation and payment verification. Handmade or custom-made creations may require up to 20 business days before dispatch.<br><br>Shipping and export charges are calculated individually for each order based on the artwork's dimensions, weight, destination country, packaging requirements, and preferred shipping method. A detailed shipping quotation will be provided during the inquiry process before order confirmation.<br><br>Shipping charges, customs duties, taxes, and import regulations are the responsibility of the customer where applicable.`;
   } else {
@@ -443,15 +447,81 @@ artworks.forEach(art => {
           </div>`;
   }
 
-  const artistName = art.artist || 'Shweta Jain Maheshwari';
-  const metaTitle = `${art.title} | ${art.inventoryCode} | SHWETA STUDIO`;
   const descriptionText = art.description || '';
-  const metaDesc = descriptionText
-    ? `${art.title} is an original ${art.medium} artwork (${art.inventoryCode}) by contemporary artist ${artistName}. Dimensions: ${dimsText}. ${descriptionText.substring(0, 120)}...`
-    : `${art.title} is an original ${art.medium} artwork (${art.inventoryCode}) by contemporary artist ${artistName}. Dimensions: ${dimsText}.`;
+
+  let metaTitle = '';
+  let metaDesc = '';
+  let imageAlt = '';
+
+  const escapeAttr = (str) => String(str || '').replace(/"/g, '&quot;');
+
+  if (art.category === 'Paintings') {
+    metaTitle = `${art.title} — Original ${art.medium} Painting | Shweta Studio`;
+    const availText = art.availability === 'Available' ? 'Available directly from the artist studio.' : (art.availability === 'Sold' ? 'Private collection.' : 'Available on inquiry.');
+    const snippet = descriptionText ? ` ${descriptionText.replace(/\s+/g, ' ').substring(0, 115).trim()}...` : '';
+    metaDesc = `Original ${art.medium.toLowerCase()} painting, ${art.title} (${dimsText}), by contemporary artist ${artistName}.${snippet} ${availText}`.trim();
+    imageAlt = `${art.title} — original ${art.medium.toLowerCase()} painting by ${artistName}`;
+  } else if (art.category === 'Sculptures') {
+    metaTitle = `${art.title} — Original ${art.medium} Sculpture | Shweta Studio`;
+    const snippet = descriptionText ? ` ${descriptionText.replace(/\s+/g, ' ').substring(0, 115).trim()}...` : '';
+    metaDesc = `Original ${art.medium.toLowerCase()} sculpture, ${art.title} (${dimsText}), by artist ${artistName}.${snippet} Available upon inquiry.`.trim();
+    imageAlt = `${art.title} — original ${art.medium.toLowerCase()} sculpture by ${artistName}`;
+  } else {
+    metaTitle = `${art.title} — Handcrafted ${art.medium} | Shweta Studio`;
+    const availText = art.availability === 'Available' ? 'Available now.' : 'Available upon inquiry.';
+    const snippet = descriptionText ? ` ${descriptionText.replace(/\s+/g, ' ').substring(0, 115).trim()}...` : '';
+    metaDesc = `Handcrafted ${art.medium.toLowerCase()}, ${art.title} (${dimsText}), by artist ${artistName}.${snippet} ${availText}`.trim();
+    imageAlt = `${art.title} — handcrafted ${art.medium.toLowerCase()} by ${artistName}`;
+  }
 
   const mainImgLarge = getWebpPath(art.images[0], 'large');
   const mainImgMedium = getWebpPath(art.images[0], 'medium');
+  const ogImage = `https://swetastudio.com/${encodeURI(mainImgLarge)}`;
+
+  const isPainting = art.category === 'Paintings';
+  const isSculpture = art.category === 'Sculptures';
+
+  const artworkEntity = {
+    "@type": (isPainting || isSculpture) ? "VisualArtwork" : ["VisualArtwork", "Product"],
+    "name": art.title,
+    "url": `https://swetastudio.com/pieces/${art.slug}.html`,
+    "image": `https://swetastudio.com/${encodeURI(mainImgLarge)}`,
+    "description": descriptionText || `${art.title} is an original ${art.medium} artwork by contemporary artist ${artistName}.`,
+    "artMedium": art.medium,
+    "artworkSurface": art.artworkSurface ? art.artworkSurface : (art.category === 'Paintings' ? (art.medium.toLowerCase().includes('paper') ? 'Paper' : art.medium.toLowerCase().includes('cloth') ? 'Cloth' : (art.medium.toLowerCase().includes('talapatra') || art.medium.toLowerCase().includes('palm')) ? 'Palm Leaf' : (art.medium.toLowerCase() === 'pencil colour' || art.medium.toLowerCase() === 'modern painting' ? undefined : 'Canvas')) : 'Clay'),
+    "artform": isSculpture ? "Sculpture" : (art.artworkType || (isPainting ? "Painting" : "Handcrafted Creation")),
+    "width": art.dimensions?.width,
+    "height": art.dimensions?.height,
+    "depth": art.dimensions?.depth,
+    "creator": {
+      "@type": "Person",
+      "name": artistName,
+      "sameAs": artistName === 'Shweta Jain Maheshwari' ? "https://swetastudio.com/story.html" : undefined
+    },
+    "artist": {
+      "@type": "Person",
+      "name": artistName,
+      "sameAs": artistName === 'Shweta Jain Maheshwari' ? "https://swetastudio.com/story.html" : undefined
+    },
+    "brand": {
+      "@type": "Brand",
+      "name": "Shweta Studio"
+    }
+  };
+
+  // Only include commercial Offer for categories with direct single-currency specifications (e.g. Jewellery)
+  // For Paintings (which feature dual-currency display without distinct currency URLs and pre-payment inquiry flow),
+  // commercial Offer markup is omitted in accordance with Google Merchant Center guidelines until dedicated checkout URLs exist.
+  if (art.category === 'Jewellery' && art.price) {
+    artworkEntity.offers = {
+      "@type": "Offer",
+      "url": `https://swetastudio.com/pieces/${art.slug}.html`,
+      "price": art.price.replace(/[^0-9.]/g, ''),
+      "priceCurrency": "USD",
+      "itemCondition": "https://schema.org/NewCondition",
+      "availability": art.availability === 'Available' ? "https://schema.org/InStock" : "https://schema.org/OutOfStock"
+    };
+  }
 
   const schemaObj = {
     "@context": "https://schema.org",
@@ -463,50 +533,29 @@ artworks.forEach(art => {
             "@type": "ListItem",
             "position": 1,
             "name": "Home",
-            "item": "https://swetastudio.art/index.html"
+            "item": "https://swetastudio.com/index.html"
           },
           {
             "@type": "ListItem",
             "position": 2,
             "name": "Collections",
-            "item": "https://swetastudio.art/works.html"
+            "item": "https://swetastudio.com/works.html"
           },
           {
             "@type": "ListItem",
             "position": 3,
             "name": displayCategory,
-            "item": `https://swetastudio.art/${art.category.toLowerCase()}.html`
+            "item": `https://swetastudio.com/${art.category.toLowerCase()}.html`
           },
           {
             "@type": "ListItem",
             "position": 4,
             "name": art.title,
-            "item": `https://swetastudio.art/pieces/${art.slug}.html`
+            "item": `https://swetastudio.com/pieces/${art.slug}.html`
           }
         ]
       },
-      {
-        "@type": "VisualArtwork",
-        "name": art.title,
-        "image": `https://swetastudio.art/${mainImgLarge}`,
-        "description": (descriptionText || `${art.title} is an original ${art.medium} artwork (${art.inventoryCode}) by contemporary artist ${artistName}.`).substring(0, 150),
-        "artMedium": art.medium,
-        "artworkSurface": art.artworkSurface ? art.artworkSurface : (art.category === 'Paintings' ? (art.medium.toLowerCase().includes('paper') ? 'Paper' : art.medium.toLowerCase().includes('cloth') ? 'Cloth' : (art.medium.toLowerCase().includes('talapatra') || art.medium.toLowerCase().includes('palm')) ? 'Palm Leaf' : (art.medium.toLowerCase() === 'pencil colour' || art.medium.toLowerCase() === 'modern painting' ? undefined : 'Canvas')) : 'Clay'),
-        "width": art.dimensions.width,
-        "height": art.dimensions.height,
-        "depth": art.dimensions.depth,
-        "artist": {
-          "@type": "Person",
-          "name": artistName,
-          "sameAs": artistName === 'Shweta Jain Maheshwari' ? "https://swetastudio.art/story.html" : undefined
-        },
-        "offers": art.price ? {
-          "@type": "Offer",
-          "price": art.price.includes('₹') ? art.price.replace(/[^0-9.]/g, '') : art.price.replace('$', '').replace(',', ''),
-          "priceCurrency": art.price.includes('₹') ? "INR" : "USD",
-          "availability": art.availability === 'Available' ? "https://schema.org/InStock" : "https://schema.org/OutOfStock"
-        } : undefined
-      }
+      artworkEntity
     ]
   };
 
@@ -534,8 +583,10 @@ artworks.forEach(art => {
     .replaceAll('{{ARTIST_INFO}}', artistInfoHtml)
     .replaceAll('{{THUMBNAIL_GALLERY}}', thumbHtml)
     .replaceAll('{{RELATED_WORKS}}', relatedHtml)
-    .replaceAll('{{META_TITLE}}', metaTitle)
-    .replaceAll('{{META_DESCRIPTION}}', metaDesc)
+    .replaceAll('{{META_TITLE}}', escapeAttr(metaTitle))
+    .replaceAll('{{META_DESCRIPTION}}', escapeAttr(metaDesc))
+    .replaceAll('{{OG_IMAGE}}', ogImage)
+    .replaceAll('{{IMAGE_ALT}}', escapeAttr(imageAlt))
     .replaceAll('{{SCHEMA_JSON}}', JSON.stringify(schemaObj, null, 2));
 
   fs.writeFileSync(path.join(OUTPUT_DIR, `${art.slug}.html`), pageContent, 'utf-8');
@@ -625,7 +676,7 @@ pagesToCompile.forEach(page => {
         const statusClass = 'status-' + art.availability.toLowerCase().replace(/\s+/g, '-');
         const hasGallery = art.images.length > 1 ? 'has-gallery' : '';
         
-        let imageTags = `<img class="image-primary" src="${imgMedium}" alt="${art.title} by ${art.artist || 'Shweta Jain'}" loading="lazy">`;
+        let imageTags = `<img class="image-primary" src="${imgMedium}" alt="${art.title} — original ${art.medium.toLowerCase()} by ${art.artist || 'Shweta Jain Maheshwari'}" loading="lazy">`;
         if (art.images.length > 1) {
           imageTags += `\n              <img class="image-secondary" src="${imgAlt}" alt="${art.title} alternate view" loading="lazy">`;
           imageTags += `\n              <img class="image-tertiary" src="${imgTert}" alt="${art.title} detail view" loading="lazy">`;
@@ -650,7 +701,12 @@ pagesToCompile.forEach(page => {
       cardsHtml += '\n      </section>';
     } else if (page.file === 'paintings.html') {
       cardsHtml = '<section class="collection-grid bounded-grid" style="gap: 30px;">';
-      artworks.filter(a => a.category === 'Paintings').forEach(art => {
+      const paintingList = artworks.filter(a => a.category === 'Paintings');
+      const sortedPaintings = [
+        ...paintingList.filter(a => INCLUDED_DELIVERY_SKUS.has(a.inventoryCode)),
+        ...paintingList.filter(a => !INCLUDED_DELIVERY_SKUS.has(a.inventoryCode))
+      ];
+      sortedPaintings.forEach(art => {
         const imgMedium = getWebpPath(art.images[0], 'medium');
         const statusClass = 'status-' + art.availability.toLowerCase().replace(/\s+/g, '-');
         
@@ -677,10 +733,12 @@ pagesToCompile.forEach(page => {
                 <div>
                   <span style="font-size: 0.68rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">India</span>
                   <strong style="font-size: 1.05rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${inrPrice}</strong>
+                  <span style="font-size: 0.68rem; color: var(--sage); font-weight: 500; display: block; line-height: 1.2;">Domestic delivery included</span>
                 </div>
                 <div>
                   <span style="font-size: 0.68rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">Worldwide</span>
                   <strong style="font-size: 1.05rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${art.price}</strong>
+                  <span style="font-size: 0.68rem; color: var(--sage); font-weight: 500; display: block; line-height: 1.2;">International delivery included</span>
                 </div>
               </div>`;
         } else {
@@ -691,7 +749,7 @@ pagesToCompile.forEach(page => {
         <article class="collection-card" data-reveal style="background: #ffffff;">
           <a href="pieces/${art.slug}.html" style="text-decoration: none; color: inherit; display: grid;">
             <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa;">
-               <img class="image-primary" src="${imgMedium}" alt="${art.title} by ${art.artist || 'Shweta Jain'}" loading="lazy">
+               <img class="image-primary" src="${imgMedium}" alt="${art.title} — original ${art.medium.toLowerCase()} by ${art.artist || 'Shweta Jain Maheshwari'}" loading="lazy">
             </div>
             <div class="piece-copy" style="padding: 20px 0 15px;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">${art.inventoryCode} • ${art.medium}</span>
@@ -856,21 +914,23 @@ let sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 `;
 
+const todayStr = '2026-09-26';
+
 rootPages.forEach(p => {
   sitemapXml += `  <url>
-    <loc>https://swetastudio.art/${p}</loc>
-    <lastmod>2026-06-27</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>${p === 'index.html' ? '1.0' : '0.8'}</priority>
+    <loc>https://swetastudio.com/${p}</loc>
+    <lastmod>${todayStr}</lastmod>
+    <changefreq>${p === 'index.html' ? 'daily' : (p.includes('html') ? 'weekly' : 'monthly')}</changefreq>
+    <priority>${p === 'index.html' ? '1.0' : (p === 'paintings.html' || p === 'works.html' ? '0.9' : '0.8')}</priority>
   </url>\n`;
 });
 
 sitemapLinks.forEach(p => {
   sitemapXml += `  <url>
-    <loc>https://swetastudio.art/${p}</loc>
-    <lastmod>2026-06-27</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
+    <loc>https://swetastudio.com/${p}</loc>
+    <lastmod>${todayStr}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
   </url>\n`;
 });
 
@@ -883,7 +943,7 @@ console.log('Generating robots.txt...');
 const robotsTxt = `User-agent: *
 Allow: /
 
-Sitemap: https://swetastudio.art/sitemap.xml
+Sitemap: https://swetastudio.com/sitemap.xml
 `;
 fs.writeFileSync('./robots.txt', robotsTxt, 'utf-8');
 console.log('robots.txt generated successfully.');

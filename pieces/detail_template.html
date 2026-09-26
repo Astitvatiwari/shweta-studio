@@ -7,29 +7,24 @@
   <!-- SEO & Metadata -->
   <title>{{META_TITLE}}</title>
   <meta name="description" content="{{META_DESCRIPTION}}">
-  <link rel="canonical" href="https://swetastudio.art/pieces/{{SLUG}}.html">
-  
-  <!-- Favicon References Placeholder (Once generated from all work/logo/only logo.png) -->
-  <!-- 
-  <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="../favicon-16x16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
-  <link rel="manifest" href="../site.webmanifest">
-  -->
+  <link rel="canonical" href="https://swetastudio.com/pieces/{{SLUG}}.html">
+  <meta name="robots" content="index, follow, max-image-preview:large">
   
   <!-- Open Graph -->
   <meta property="og:site_name" content="SHWETA STUDIO">
   <meta property="og:title" content="{{META_TITLE}}">
   <meta property="og:description" content="{{META_DESCRIPTION}}">
   <meta property="og:type" content="article">
-  <meta property="og:url" content="https://swetastudio.art/pieces/{{SLUG}}.html">
-  <meta property="og:image" content="https://swetastudio.art/{{MAIN_IMAGE}}">
+  <meta property="og:url" content="https://swetastudio.com/pieces/{{SLUG}}.html">
+  <meta property="og:image" content="{{OG_IMAGE}}">
+  <meta property="og:image:alt" content="{{IMAGE_ALT}}">
   
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="{{META_TITLE}}">
   <meta name="twitter:description" content="{{META_DESCRIPTION}}">
-  <meta name="twitter:image" content="https://swetastudio.art/{{MAIN_IMAGE}}">
+  <meta name="twitter:image" content="{{OG_IMAGE}}">
+  <meta name="twitter:image:alt" content="{{IMAGE_ALT}}">
   
   <!-- Fonts & Styles -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -93,7 +88,7 @@
         <!-- Left Side: Image Gallery -->
         <div class="editorial-image-side" style="grid-column: span 7; display: flex; flex-direction: column; gap: 20px;">
           <div class="story-image-wrapper" style="border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa; display: flex; align-items: center; justify-content: center; aspect-ratio: 4/5;">
-            <img id="main-artwork-image" src="../{{MAIN_IMAGE}}" alt="{{TITLE}} by {{ARTIST}}" style="width: 100%; height: 100%; object-fit: contain; display: block;" loading="lazy">
+            <img id="main-artwork-image" src="../{{MAIN_IMAGE}}" alt="{{IMAGE_ALT}}" style="width: 100%; height: 100%; object-fit: contain; display: block;" loading="eager" fetchpriority="high">
           </div>
           
           <!-- Thumbnail Gallery -->

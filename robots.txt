@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://swetastudio.art/sitemap.xml
+Sitemap: https://swetastudio.com/sitemap.xml
