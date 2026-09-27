@@ -124,6 +124,16 @@ function calculateDomesticInrPrice(usdPriceStr) {
   return `₹${finalInr.toLocaleString('en-IN')}`;
 }
 
+const JEWELLERY_DEPRECIATION_FACTOR = 0.90;
+
+function calculateJewelleryInrPrice(usdPriceStr) {
+  if (!usdPriceStr) return null;
+  const num = parseFloat(usdPriceStr.replace(/[^0-9.]/g, ''));
+  if (isNaN(num)) return null;
+  const inr = Math.round(num * INR_TO_USD_RATE * JEWELLERY_DEPRECIATION_FACTOR);
+  return `₹${inr.toLocaleString('en-IN')}`;
+}
+
 function parseDimensionValue(str) {
   if (!str) return null;
   const match = str.toString().match(/([0-9.]+)\s*(inches|inch|feet|ft|cm)?/i);
@@ -239,6 +249,13 @@ artworks.forEach(art => {
                   <strong style="font-size: 0.95rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${rel.price}</strong>
                   <span style="font-size: 0.65rem; color: var(--sage); font-weight: 500; display: block; line-height: 1.2;">International delivery included</span>
                 </div>
+              </div>`;
+    } else if (rel.category === 'Jewellery') {
+      const inrPrice = calculateJewelleryInrPrice(rel.price);
+      priceInfo = `
+              <div style="margin-top: 4px;">
+                <strong style="font-size: 1.05rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2;">${inrPrice}</strong>
+                <span style="font-size: 0.85rem; font-weight: 500; color: var(--muted); display: block; margin-top: 2px;">${rel.price}</span>
               </div>`;
     } else {
       priceInfo = `<strong style="font-size: 1.15rem; color: var(--clay); font-weight: 600;">${rel.price}</strong>`;
@@ -393,6 +410,15 @@ artworks.forEach(art => {
               <button type="button" id="btn-request-custom-size" onclick="submitCustomSizeRequest()" style="width: 100%; padding: 12px 18px; background: var(--clay); color: #ffffff; border: none; border-radius: 4px; font-family: inherit; font-size: 0.86rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: background 0.2s ease;">
                 Request Custom Size
               </button>
+            </div>
+          </div>`;
+  } else if (art.category === 'Jewellery') {
+    const inrPrice = calculateJewelleryInrPrice(art.price);
+    priceDisplay = `<div style="display: flex; flex-direction: column; gap: 4px; margin-top: 15px; margin-bottom: 10px;">
+            <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 500;">Pricing</span>
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+              <strong style="font-size: 1.8rem; color: var(--clay); font-weight: 600; line-height: 1.2;">${inrPrice}</strong>
+              <span style="font-size: 1.15rem; color: var(--muted); font-weight: 500;">${art.price}</span>
             </div>
           </div>`;
   } else {
@@ -769,6 +795,7 @@ pagesToCompile.forEach(page => {
         <div class="collection-grid" style="gap: 30px;">`;
         
       artworks.filter(a => a.category === 'Jewellery' && a.collection === '$10 Collection').forEach(art => {
+        const inrPrice = calculateJewelleryInrPrice(art.price);
         const imgMedium = getWebpPath(art.images[0], 'medium');
         const imgAlt = art.images[1] ? getWebpPath(art.images[1], 'medium') : imgMedium;
         const imgTert = art.images[2] ? getWebpPath(art.images[2], 'medium') : imgMedium;
@@ -793,7 +820,10 @@ pagesToCompile.forEach(page => {
               <div class="piece-copy" style="padding: 20px 0 15px;">
                 <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">${art.inventoryCode} • ${art.medium}</span>
                 <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">${art.title}</h3>
-                <strong style="font-size: 1.15rem; font-weight: 600; color: var(--clay);">${art.price}</strong>
+                <div style="margin: 4px 0 6px;">
+                  <strong style="font-size: 1.15rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2;">${inrPrice}</strong>
+                  <span style="font-size: 0.9rem; font-weight: 500; color: var(--muted); display: block; margin-top: 2px;">${art.price}</span>
+                </div>
                 <span class="status-tag ${statusClass}" style="margin-top: 8px;">${art.availability}</span>
                 <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">Inquire about this artwork</span>
               </div>
@@ -809,6 +839,7 @@ pagesToCompile.forEach(page => {
         <div class="collection-grid" style="gap: 30px;">`;
         
       artworks.filter(a => a.category === 'Jewellery' && a.collection === '$20 Collection').forEach(art => {
+        const inrPrice = calculateJewelleryInrPrice(art.price);
         const imgMedium = getWebpPath(art.images[0], 'medium');
         const imgAlt = art.images[1] ? getWebpPath(art.images[1], 'medium') : imgMedium;
         const imgTert = art.images[2] ? getWebpPath(art.images[2], 'medium') : imgMedium;
@@ -833,7 +864,10 @@ pagesToCompile.forEach(page => {
               <div class="piece-copy" style="padding: 20px 0 15px;">
                 <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">${art.inventoryCode} • ${art.medium}</span>
                 <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">${art.title}</h3>
-                <strong style="font-size: 1.15rem; font-weight: 600; color: var(--clay);">${art.price}</strong>
+                <div style="margin: 4px 0 6px;">
+                  <strong style="font-size: 1.15rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2;">${inrPrice}</strong>
+                  <span style="font-size: 0.9rem; font-weight: 500; color: var(--muted); display: block; margin-top: 2px;">${art.price}</span>
+                </div>
                 <span class="status-tag ${statusClass}" style="margin-top: 8px;">${art.availability}</span>
                 <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">Inquire about this artwork</span>
               </div>
