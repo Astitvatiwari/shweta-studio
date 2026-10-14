@@ -17,7 +17,7 @@ const artworks = [
     },
     year: "2026",
     availability: "Available on Inquiry",
-    price: null,
+    price: "₹10,000",
     images: [
       "all work/scuptures/beyond the shell/Beyond the Shell 1.jpeg",
       "all work/scuptures/beyond the shell/Beyond the Shell 2.jpeg"
@@ -54,7 +54,7 @@ const artworks = [
     },
     year: "2025",
     availability: "Available",
-    price: null,
+    price: "₹10,000",
     images: [
       "all work/scuptures/candle/candle 1.jpeg",
       "all work/scuptures/candle/candle 2.jpeg",
@@ -93,7 +93,7 @@ const artworks = [
     },
     year: "2026",
     availability: "Available on Inquiry",
-    price: null,
+    price: "₹15,000",
     images: [
       "all work/scuptures/Inner Sentinel/Inner Sentinel 1.jpeg",
       "all work/scuptures/Inner Sentinel/Inner Sentinel 2.jpeg",
@@ -136,7 +136,7 @@ const artworks = [
     },
     year: "2025",
     availability: "Reserved",
-    price: null,
+    price: "₹15,000",
     images: [
       "all work/scuptures/seed form/Seed Form 1.jpeg",
       "all work/scuptures/seed form/Seed Form 2.jpeg"
@@ -213,7 +213,7 @@ const artworks = [
     },
     year: "2026",
     availability: "Available on Inquiry",
-    price: null,
+    price: "₹20,000",
     images: [
       "all work/scuptures/sprit of the wild/Spirit of the Wild 1.jpeg",
       "all work/scuptures/sprit of the wild/Spirit of the Wild 2.jpeg",
@@ -289,7 +289,7 @@ const artworks = [
     },
     year: "2026",
     availability: "Available on Inquiry",
-    price: null,
+    price: "₹15,000",
     images: [
       "all work/scuptures/Unzipped identity/Unzipped Identity 1.jpeg",
       "all work/scuptures/Unzipped identity/Unzipped Identity 2.jpeg",

@@ -134,6 +134,32 @@ function calculateJewelleryInrPrice(usdPriceStr) {
   return `₹${inr.toLocaleString('en-IN')}`;
 }
 
+const SCULPTURE_INTL_MULTIPLIER = 1.60;
+const SCULPTURE_INTL_PREMIUM_MULTIPLIER = SCULPTURE_INTL_MULTIPLIER;
+
+function calculateSculptureIntlUsdPrice(inrPriceStr) {
+  if (!inrPriceStr) return null;
+  const num = parseFloat(String(inrPriceStr).replace(/[^0-9.]/g, ''));
+  if (isNaN(num)) return null;
+  const usd = Math.round((num / INR_TO_USD_RATE) * SCULPTURE_INTL_MULTIPLIER);
+  return `$${usd.toLocaleString('en-US')}`;
+}
+
+const calculateSculptureUsdPrice = calculateSculptureIntlUsdPrice;
+
+export {
+  INR_TO_USD_RATE,
+  INTL_PREMIUM_MULTIPLIER,
+  calculateIntlUsdPrice,
+  calculateDomesticInrPrice,
+  JEWELLERY_DEPRECIATION_FACTOR,
+  calculateJewelleryInrPrice,
+  SCULPTURE_INTL_MULTIPLIER,
+  SCULPTURE_INTL_PREMIUM_MULTIPLIER,
+  calculateSculptureIntlUsdPrice,
+  calculateSculptureUsdPrice
+};
+
 function parseDimensionValue(str) {
   if (!str) return null;
   const match = str.toString().match(/([0-9.]+)\s*(inches|inch|feet|ft|cm)?/i);
@@ -219,7 +245,21 @@ artworks.forEach(art => {
     const imgMedium = getWebpPath(rel.images[0], 'medium');
     let priceInfo = '';
     if (rel.category === 'Sculptures') {
-      priceInfo = `<strong style="font-size: 0.95rem; color: var(--muted); font-weight: 500;">Available on Inquiry</strong>`;
+      if (rel.price) {
+        const usdPrice = calculateSculptureIntlUsdPrice(rel.price);
+        priceInfo = `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding: 6px 8px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
+                <div>
+                  <span style="font-size: 0.65rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">India</span>
+                  <strong style="font-size: 0.95rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${rel.price}</strong>
+                </div>
+                <div>
+                  <span style="font-size: 0.65rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">Worldwide</span>
+                  <strong style="font-size: 0.95rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${usdPrice}</strong>
+                </div>
+              </div>`;
+      } else {
+        priceInfo = `<strong style="font-size: 0.95rem; color: var(--muted); font-weight: 500;">Available on Inquiry</strong>`;
+      }
     } else if (INCLUDED_DELIVERY_SKUS.has(rel.inventoryCode)) {
       const usdPrice = calculateIntlUsdPrice(rel.price);
       priceInfo = `
@@ -307,10 +347,27 @@ artworks.forEach(art => {
 
   let priceDisplay = '';
   if (art.category === 'Sculptures') {
-    priceDisplay = `<div style="display: flex; flex-direction: column; gap: 4px; margin-top: 15px; margin-bottom: 10px;">
+    if (art.price) {
+      const usdPrice = calculateSculptureIntlUsdPrice(art.price);
+      priceDisplay = `<div style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px; margin-bottom: 12px;">
+            <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 500;">Pricing</span>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+              <div style="background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px;">
+                <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 600; display: block; margin-bottom: 4px;">India</span>
+                <div style="font-size: 1.6rem; color: var(--clay); font-weight: 600; line-height: 1.2;">${art.price}</div>
+              </div>
+              <div style="background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px;">
+                <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 600; display: block; margin-bottom: 4px;">Worldwide</span>
+                <div style="font-size: 1.6rem; color: var(--clay); font-weight: 600; line-height: 1.2;">${usdPrice}</div>
+              </div>
+            </div>
+          </div>`;
+    } else {
+      priceDisplay = `<div style="display: flex; flex-direction: column; gap: 4px; margin-top: 15px; margin-bottom: 10px;">
             <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 500;">Pricing</span>
             <strong style="font-size: 1.8rem; color: var(--clay); font-weight: 500;">Price available upon request</strong>
           </div>`;
+    }
   } else if (art.category === 'Paintings') {
     let pricingBoxesHtml = '';
     if (INCLUDED_DELIVERY_SKUS.has(art.inventoryCode)) {
@@ -708,6 +765,25 @@ pagesToCompile.forEach(page => {
           imageTags += `\n              <img class="image-tertiary" src="${imgTert}" alt="${art.title} detail view" loading="lazy">`;
         }
         
+        let priceHtml = '';
+        if (art.price) {
+          const usdPrice = calculateSculptureIntlUsdPrice(art.price);
+          priceHtml = `
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding: 8px 10px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
+                <div>
+                  <span style="font-size: 0.68rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">India</span>
+                  <strong style="font-size: 1.05rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${art.price}</strong>
+                </div>
+                <div>
+                  <span style="font-size: 0.68rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">Worldwide</span>
+                  <strong style="font-size: 1.05rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${usdPrice}</strong>
+                </div>
+              </div>`;
+        } else {
+          priceHtml = `
+              <span style="font-size: 0.9rem; color: var(--muted); font-weight: 500;">Available on Inquiry</span>`;
+        }
+
         cardsHtml += `
         <article class="collection-card ${hasGallery}" data-reveal style="background: #ffffff;">
           <a href="pieces/${art.slug}.html" style="text-decoration: none; color: inherit; display: grid;">
@@ -716,8 +792,7 @@ pagesToCompile.forEach(page => {
             </div>
             <div class="piece-copy" style="padding: 20px 0 15px;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">${art.inventoryCode} • ${art.medium}</span>
-              <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">${art.title}</h3>
-              <span style="font-size: 0.9rem; color: var(--muted); font-weight: 500;">Available on Inquiry</span>
+              <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">${art.title}</h3>${priceHtml}
               <span class="status-tag ${statusClass}" style="margin-top: 8px;">${art.availability}</span>
               <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">View Details</span>
             </div>
