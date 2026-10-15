@@ -9,10 +9,26 @@ Author: Shweta Studio
 /* ==========================================
    IMAGE SWAP FUNCTIONALITY
 ========================================== */
-export function swapImage(element, src) {
+export function swapImage(element, src, fallbackSrc) {
   const mainImage = document.getElementById('main-artwork-image');
+  const mainSource = document.getElementById('main-artwork-source');
+  
+  if (mainSource && src) {
+    mainSource.srcset = src;
+  }
+  
   if (mainImage) {
-    mainImage.src = src;
+    if (fallbackSrc) {
+      mainImage.dataset.fallback = fallbackSrc;
+      mainImage.onerror = function() {
+        if (mainSource) mainSource.srcset = '';
+        if (this.dataset.fallback) this.src = this.dataset.fallback;
+      };
+      mainImage.src = fallbackSrc;
+    } else {
+      delete mainImage.dataset.fallback;
+      mainImage.src = src;
+    }
   }
   
   // Reset border colors on all thumbnails

@@ -324,10 +324,23 @@ artworks.forEach(art => {
       const imgMedium = getWebpPath(img, 'medium');
       const borderStyle = idx === 0 ? 'border: 2px solid var(--clay);' : 'border: 1px solid var(--line);';
       const altText = (art.imageAlts && art.imageAlts[idx]) ? art.imageAlts[idx] : `${art.title} — view ${idx+1} by ${artistName}`;
-      thumbHtml += `
+      if (art.slug === 'sharabha-the-cosmic-subduer-of-narasimha') {
+        const encodedThumb = encodeURI(imgThumb);
+        const encodedMedium = encodeURI(imgMedium);
+        const encodedFallback = encodeURI(img);
+        thumbHtml += `
+            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; ${borderStyle} transition: border-color 0.24s;" onclick="swapImage(this, '../${encodedMedium}', '../${encodedFallback}')">
+              <picture style="width: 100%; height: 100%; display: block;">
+                <source srcset="../${encodedThumb}" type="image/webp">
+                <img src="../${encodedFallback}" onerror="const s=this.previousElementSibling; if(s)s.srcset=''; this.src='../${encodedFallback}';" alt="${altText}" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+              </picture>
+            </div>`;
+      } else {
+        thumbHtml += `
             <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; ${borderStyle} transition: border-color 0.24s;" onclick="swapImage(this, '../${imgMedium}')">
               <img src="../${imgThumb}" alt="${altText}" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
             </div>`;
+      }
     });
     thumbHtml += `</div>`;
   }
@@ -672,6 +685,18 @@ artworks.forEach(art => {
     .replaceAll('{{OG_IMAGE}}', ogImage)
     .replaceAll('{{IMAGE_ALT}}', escapeAttr(imageAlt))
     .replaceAll('{{SCHEMA_JSON}}', JSON.stringify(schemaObj, null, 2));
+
+  if (art.slug === 'sharabha-the-cosmic-subduer-of-narasimha') {
+    const encodedMedium = encodeURI(mainImgMedium);
+    const encodedFallback = encodeURI(art.images[0]);
+    pageContent = pageContent.replace(
+      `<img id="main-artwork-image" src="../${mainImgMedium}" alt="${escapeAttr(imageAlt)}" style="width: 100%; height: 100%; object-fit: contain; display: block;" loading="eager" fetchpriority="high">`,
+      `<picture id="main-artwork-picture" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+            <source id="main-artwork-source" srcset="../${encodedMedium}" type="image/webp">
+            <img id="main-artwork-image" src="../${encodedFallback}" data-fallback="../${encodedFallback}" onerror="const s=this.previousElementSibling; if(s)s.srcset=''; if(this.dataset.fallback)this.src=this.dataset.fallback;" alt="${escapeAttr(imageAlt)}" style="width: 100%; height: 100%; object-fit: contain; display: block;" loading="eager" fetchpriority="high">
+          </picture>`
+    );
+  }
 
   fs.writeFileSync(path.join(OUTPUT_DIR, `${art.slug}.html`), pageContent, 'utf-8');
   sitemapLinks.push(`pieces/${art.slug}.html`);

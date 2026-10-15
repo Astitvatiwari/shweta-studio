@@ -63,6 +63,7 @@
 }
 
 .hover-piece:hover img.image-primary,
+.hover-piece:hover picture.image-primary img,
 .collection-card:hover img.image-primary {
   transform: scale(1.03);
 }

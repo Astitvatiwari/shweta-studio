@@ -146,37 +146,67 @@
         <!-- Left Side: Image Gallery -->
         <div class="editorial-image-side" style="grid-column: span 7; display: flex; flex-direction: column; gap: 20px;">
           <div class="story-image-wrapper" style="border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa; display: flex; align-items: center; justify-content: center; aspect-ratio: 4/5;">
-            <img id="main-artwork-image" src="../all work/scuptures/narasimha/narasimha-full-front-view-primary_medium.webp" alt="Full frontal view of the 9-foot layered corrugated cardboard sculpture Narasimha by Mukul Thakur, showing expansive wings, trident, and lion base." style="width: 100%; height: 100%; object-fit: contain; display: block;" loading="eager" fetchpriority="high">
+            <picture id="main-artwork-picture" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+            <source id="main-artwork-source" srcset="../all%20work/scuptures/narasimha/narasimha-full-front-view-primary_medium.webp" type="image/webp">
+            <img id="main-artwork-image" src="../all%20work/scuptures/narasimha/narasimha-full-front-view-primary.jpeg" data-fallback="../all%20work/scuptures/narasimha/narasimha-full-front-view-primary.jpeg" onerror="const s=this.previousElementSibling; if(s)s.srcset=''; if(this.dataset.fallback)this.src=this.dataset.fallback;" alt="Full frontal view of the 9-foot layered corrugated cardboard sculpture Narasimha by Mukul Thakur, showing expansive wings, trident, and lion base." style="width: 100%; height: 100%; object-fit: contain; display: block;" loading="eager" fetchpriority="high">
+          </picture>
           </div>
           
           <!-- Thumbnail Gallery -->
           <div class="thumbnail-gallery-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 10px; margin-top: 10px;">
-            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; border: 2px solid var(--clay); transition: border-color 0.24s;" onclick="swapImage(this, '../all work/scuptures/narasimha/narasimha-full-front-view-primary_medium.webp')">
-              <img src="../all work/scuptures/narasimha/narasimha-full-front-view-primary_thumb.webp" alt="Full frontal view of the 9-foot layered corrugated cardboard sculpture Narasimha by Mukul Thakur, showing expansive wings, trident, and lion base." style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; border: 2px solid var(--clay); transition: border-color 0.24s;" onclick="swapImage(this, '../all%20work/scuptures/narasimha/narasimha-full-front-view-primary_medium.webp', '../all%20work/scuptures/narasimha/narasimha-full-front-view-primary.jpeg')">
+              <picture style="width: 100%; height: 100%; display: block;">
+                <source srcset="../all%20work/scuptures/narasimha/narasimha-full-front-view-primary_thumb.webp" type="image/webp">
+                <img src="../all%20work/scuptures/narasimha/narasimha-full-front-view-primary.jpeg" onerror="const s=this.previousElementSibling; if(s)s.srcset=''; this.src='../all%20work/scuptures/narasimha/narasimha-full-front-view-primary.jpeg';" alt="Full frontal view of the 9-foot layered corrugated cardboard sculpture Narasimha by Mukul Thakur, showing expansive wings, trident, and lion base." style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+              </picture>
             </div>
-            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; border: 1px solid var(--line); transition: border-color 0.24s;" onclick="swapImage(this, '../all work/scuptures/narasimha/narasimha-side-angle-full-view_medium.webp')">
-              <img src="../all work/scuptures/narasimha/narasimha-side-angle-full-view_thumb.webp" alt="Side profile view of monumental cardboard sculpture Narasimha showing three-dimensional depth, wing curvature, and real-world scale." style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; border: 1px solid var(--line); transition: border-color 0.24s;" onclick="swapImage(this, '../all%20work/scuptures/narasimha/narasimha-side-angle-full-view_medium.webp', '../all%20work/scuptures/narasimha/narasimha-side-angle-full-view.jpeg')">
+              <picture style="width: 100%; height: 100%; display: block;">
+                <source srcset="../all%20work/scuptures/narasimha/narasimha-side-angle-full-view_thumb.webp" type="image/webp">
+                <img src="../all%20work/scuptures/narasimha/narasimha-side-angle-full-view.jpeg" onerror="const s=this.previousElementSibling; if(s)s.srcset=''; this.src='../all%20work/scuptures/narasimha/narasimha-side-angle-full-view.jpeg';" alt="Side profile view of monumental cardboard sculpture Narasimha showing three-dimensional depth, wing curvature, and real-world scale." style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+              </picture>
             </div>
-            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; border: 1px solid var(--line); transition: border-color 0.24s;" onclick="swapImage(this, '../all work/scuptures/narasimha/narasimha-rear-view-wings_medium.webp')">
-              <img src="../all work/scuptures/narasimha/narasimha-rear-view-wings_thumb.webp" alt="Rear view of the monumental sculpture Narasimha showcasing the 8-foot corrugated cardboard wingspan, plumage layering, and rear anatomy." style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; border: 1px solid var(--line); transition: border-color 0.24s;" onclick="swapImage(this, '../all%20work/scuptures/narasimha/narasimha-rear-view-wings_medium.webp', '../all%20work/scuptures/narasimha/narasimha-rear-view-wings.jpeg')">
+              <picture style="width: 100%; height: 100%; display: block;">
+                <source srcset="../all%20work/scuptures/narasimha/narasimha-rear-view-wings_thumb.webp" type="image/webp">
+                <img src="../all%20work/scuptures/narasimha/narasimha-rear-view-wings.jpeg" onerror="const s=this.previousElementSibling; if(s)s.srcset=''; this.src='../all%20work/scuptures/narasimha/narasimha-rear-view-wings.jpeg';" alt="Rear view of the monumental sculpture Narasimha showcasing the 8-foot corrugated cardboard wingspan, plumage layering, and rear anatomy." style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+              </picture>
             </div>
-            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; border: 1px solid var(--line); transition: border-color 0.24s;" onclick="swapImage(this, '../all work/scuptures/narasimha/narasimha-face-closeup-front_medium.webp')">
-              <img src="../all work/scuptures/narasimha/narasimha-face-closeup-front_thumb.webp" alt="Frontal close-up of the roaring beast visage in layered corrugated cardboard, highlighting the third eye and sharp white fangs." style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; border: 1px solid var(--line); transition: border-color 0.24s;" onclick="swapImage(this, '../all%20work/scuptures/narasimha/narasimha-face-closeup-front_medium.webp', '../all%20work/scuptures/narasimha/narasimha-face-closeup-front.jpeg')">
+              <picture style="width: 100%; height: 100%; display: block;">
+                <source srcset="../all%20work/scuptures/narasimha/narasimha-face-closeup-front_thumb.webp" type="image/webp">
+                <img src="../all%20work/scuptures/narasimha/narasimha-face-closeup-front.jpeg" onerror="const s=this.previousElementSibling; if(s)s.srcset=''; this.src='../all%20work/scuptures/narasimha/narasimha-face-closeup-front.jpeg';" alt="Frontal close-up of the roaring beast visage in layered corrugated cardboard, highlighting the third eye and sharp white fangs." style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+              </picture>
             </div>
-            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; border: 1px solid var(--line); transition: border-color 0.24s;" onclick="swapImage(this, '../all work/scuptures/narasimha/narasimha-face-closeup-angle_medium.webp')">
-              <img src="../all work/scuptures/narasimha/narasimha-face-closeup-angle_thumb.webp" alt="Three-quarter close-up of the fierce roaring face of Narasimha, featuring fluted cardboard horns, white teeth, and third eye." style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; border: 1px solid var(--line); transition: border-color 0.24s;" onclick="swapImage(this, '../all%20work/scuptures/narasimha/narasimha-face-closeup-angle_medium.webp', '../all%20work/scuptures/narasimha/narasimha-face-closeup-angle.jpeg')">
+              <picture style="width: 100%; height: 100%; display: block;">
+                <source srcset="../all%20work/scuptures/narasimha/narasimha-face-closeup-angle_thumb.webp" type="image/webp">
+                <img src="../all%20work/scuptures/narasimha/narasimha-face-closeup-angle.jpeg" onerror="const s=this.previousElementSibling; if(s)s.srcset=''; this.src='../all%20work/scuptures/narasimha/narasimha-face-closeup-angle.jpeg';" alt="Three-quarter close-up of the fierce roaring face of Narasimha, featuring fluted cardboard horns, white teeth, and third eye." style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+              </picture>
             </div>
-            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; border: 1px solid var(--line); transition: border-color 0.24s;" onclick="swapImage(this, '../all work/scuptures/narasimha/narasimha-chest-necklace-detail_medium.webp')">
-              <img src="../all work/scuptures/narasimha/narasimha-chest-necklace-detail_thumb.webp" alt="Detailed view of the layered corrugated cardboard torso, pectoral muscles, beaded garland necklace, and ornate carved belt." style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; border: 1px solid var(--line); transition: border-color 0.24s;" onclick="swapImage(this, '../all%20work/scuptures/narasimha/narasimha-chest-necklace-detail_medium.webp', '../all%20work/scuptures/narasimha/narasimha-chest-necklace-detail.jpeg')">
+              <picture style="width: 100%; height: 100%; display: block;">
+                <source srcset="../all%20work/scuptures/narasimha/narasimha-chest-necklace-detail_thumb.webp" type="image/webp">
+                <img src="../all%20work/scuptures/narasimha/narasimha-chest-necklace-detail.jpeg" onerror="const s=this.previousElementSibling; if(s)s.srcset=''; this.src='../all%20work/scuptures/narasimha/narasimha-chest-necklace-detail.jpeg';" alt="Detailed view of the layered corrugated cardboard torso, pectoral muscles, beaded garland necklace, and ornate carved belt." style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+              </picture>
             </div>
-            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; border: 1px solid var(--line); transition: border-color 0.24s;" onclick="swapImage(this, '../all work/scuptures/narasimha/narasimha-hand-staff-detail_medium.webp')">
-              <img src="../all work/scuptures/narasimha/narasimha-hand-staff-detail_thumb.webp" alt="Close-up of clawed hand with white talons gripping the spiral-wrapped shaft of the cardboard trishula trident." style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; border: 1px solid var(--line); transition: border-color 0.24s;" onclick="swapImage(this, '../all%20work/scuptures/narasimha/narasimha-hand-staff-detail_medium.webp', '../all%20work/scuptures/narasimha/narasimha-hand-staff-detail.jpeg')">
+              <picture style="width: 100%; height: 100%; display: block;">
+                <source srcset="../all%20work/scuptures/narasimha/narasimha-hand-staff-detail_thumb.webp" type="image/webp">
+                <img src="../all%20work/scuptures/narasimha/narasimha-hand-staff-detail.jpeg" onerror="const s=this.previousElementSibling; if(s)s.srcset=''; this.src='../all%20work/scuptures/narasimha/narasimha-hand-staff-detail.jpeg';" alt="Close-up of clawed hand with white talons gripping the spiral-wrapped shaft of the cardboard trishula trident." style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+              </picture>
             </div>
-            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; border: 1px solid var(--line); transition: border-color 0.24s;" onclick="swapImage(this, '../all work/scuptures/narasimha/narasimha-hand-held-object-detail_medium.webp')">
-              <img src="../all work/scuptures/narasimha/narasimha-hand-held-object-detail_thumb.webp" alt="Close-up of the sculpture's left clawed hands holding a cardboard damru drum and sculpted sword with beaded bracelet." style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; border: 1px solid var(--line); transition: border-color 0.24s;" onclick="swapImage(this, '../all%20work/scuptures/narasimha/narasimha-hand-held-object-detail_medium.webp', '../all%20work/scuptures/narasimha/narasimha-hand-held-object-detail.jpeg')">
+              <picture style="width: 100%; height: 100%; display: block;">
+                <source srcset="../all%20work/scuptures/narasimha/narasimha-hand-held-object-detail_thumb.webp" type="image/webp">
+                <img src="../all%20work/scuptures/narasimha/narasimha-hand-held-object-detail.jpeg" onerror="const s=this.previousElementSibling; if(s)s.srcset=''; this.src='../all%20work/scuptures/narasimha/narasimha-hand-held-object-detail.jpeg';" alt="Close-up of the sculpture's left clawed hands holding a cardboard damru drum and sculpted sword with beaded bracelet." style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+              </picture>
             </div>
-            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; border: 1px solid var(--line); transition: border-color 0.24s;" onclick="swapImage(this, '../all work/scuptures/narasimha/narasimha-full-front-view-alternate_medium.webp')">
-              <img src="../all work/scuptures/narasimha/narasimha-full-front-view-alternate_thumb.webp" alt="Alternate full frontal daylight view of the monumental corrugated cardboard sculpture Narasimha by Mukul Thakur." style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+            <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; border: 1px solid var(--line); transition: border-color 0.24s;" onclick="swapImage(this, '../all%20work/scuptures/narasimha/narasimha-full-front-view-alternate_medium.webp', '../all%20work/scuptures/narasimha/narasimha-full-front-view-alternate.jpeg')">
+              <picture style="width: 100%; height: 100%; display: block;">
+                <source srcset="../all%20work/scuptures/narasimha/narasimha-full-front-view-alternate_thumb.webp" type="image/webp">
+                <img src="../all%20work/scuptures/narasimha/narasimha-full-front-view-alternate.jpeg" onerror="const s=this.previousElementSibling; if(s)s.srcset=''; this.src='../all%20work/scuptures/narasimha/narasimha-full-front-view-alternate.jpeg';" alt="Alternate full frontal daylight view of the monumental corrugated cardboard sculpture Narasimha by Mukul Thakur." style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+              </picture>
             </div></div>
         </div>
 
