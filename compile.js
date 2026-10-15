@@ -323,9 +323,10 @@ artworks.forEach(art => {
       const imgThumb = getWebpPath(img, 'thumb');
       const imgMedium = getWebpPath(img, 'medium');
       const borderStyle = idx === 0 ? 'border: 2px solid var(--clay);' : 'border: 1px solid var(--line);';
+      const altText = (art.imageAlts && art.imageAlts[idx]) ? art.imageAlts[idx] : `${art.title} — view ${idx+1} by ${artistName}`;
       thumbHtml += `
             <div class="gallery-thumb-item" style="border-radius: 4px; overflow: hidden; aspect-ratio: 1; cursor: pointer; ${borderStyle} transition: border-color 0.24s;" onclick="swapImage(this, '../${imgMedium}')">
-              <img src="../${imgThumb}" alt="${art.title} — view ${idx+1} by ${artistName}" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+              <img src="../${imgThumb}" alt="${altText}" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
             </div>`;
     });
     thumbHtml += `</div>`;
@@ -547,8 +548,8 @@ artworks.forEach(art => {
   } else if (art.category === 'Sculptures') {
     metaTitle = `${art.title} — Original ${art.medium} Sculpture | Shweta Studio`;
     const snippet = descriptionText ? ` ${descriptionText.replace(/\s+/g, ' ').substring(0, 115).trim()}...` : '';
-    metaDesc = `Original ${art.medium.toLowerCase()} sculpture, ${art.title} (${dimsText}), by artist ${artistName}.${snippet} Available upon inquiry.`.trim();
-    imageAlt = `${art.title} — original ${art.medium.toLowerCase()} sculpture by ${artistName}`;
+    metaDesc = art.metaDescription ? art.metaDescription : `Original ${art.medium.toLowerCase()} sculpture, ${art.title} (${dimsText}), by artist ${artistName}.${snippet} Available upon inquiry.`.trim();
+    imageAlt = (art.imageAlts && art.imageAlts[0]) ? art.imageAlts[0] : `${art.title} — original ${art.medium.toLowerCase()} sculpture by ${artistName}`;
   } else {
     metaTitle = `${art.title} — Handcrafted ${art.medium} | Shweta Studio`;
     const availText = art.availability === 'Available' ? 'Available now.' : 'Available upon inquiry.';
@@ -571,7 +572,7 @@ artworks.forEach(art => {
     "image": `https://swetastudio.com/${encodeURI(mainImgLarge)}`,
     "description": descriptionText || `${art.title} is an original ${art.medium} artwork by contemporary artist ${artistName}.`,
     "artMedium": art.medium,
-    "artworkSurface": art.artworkSurface ? art.artworkSurface : (art.category === 'Paintings' ? (art.medium.toLowerCase().includes('paper') ? 'Paper' : art.medium.toLowerCase().includes('cloth') ? 'Cloth' : (art.medium.toLowerCase().includes('talapatra') || art.medium.toLowerCase().includes('palm')) ? 'Palm Leaf' : (art.medium.toLowerCase() === 'pencil colour' || art.medium.toLowerCase() === 'modern painting' ? undefined : 'Canvas')) : 'Clay'),
+    "artworkSurface": art.artworkSurface ? art.artworkSurface : (art.category === 'Paintings' ? (art.medium.toLowerCase().includes('paper') ? 'Paper' : art.medium.toLowerCase().includes('cloth') ? 'Cloth' : (art.medium.toLowerCase().includes('talapatra') || art.medium.toLowerCase().includes('palm')) ? 'Palm Leaf' : (art.medium.toLowerCase() === 'pencil colour' || art.medium.toLowerCase() === 'modern painting' ? undefined : 'Canvas')) : (art.medium && art.medium.toLowerCase().includes('cardboard') ? 'Cardboard' : 'Clay')),
     "artform": isSculpture ? "Sculpture" : (art.artworkType || (isPainting ? "Painting" : "Handcrafted Creation")),
     "width": art.dimensions?.width,
     "height": art.dimensions?.height,
@@ -753,16 +754,17 @@ pagesToCompile.forEach(page => {
     if (page.file === 'sculptures.html') {
       cardsHtml = '<section class="collection-grid bounded-grid" style="gap: 30px;">';
       artworks.filter(a => a.category === 'Sculptures').forEach(art => {
-        const imgMedium = getWebpPath(art.images[0], 'medium');
-        const imgAlt = art.images[1] ? getWebpPath(art.images[1], 'medium') : imgMedium;
-        const imgTert = art.images[2] ? getWebpPath(art.images[2], 'medium') : imgMedium;
+        const primarySrc = art.cardImage || art.images[0];
+        const imgMedium = getWebpPath(primarySrc, 'medium');
+        const imgAlt = (art.cardImage && art.images[0] !== art.cardImage) ? getWebpPath(art.images[0], 'medium') : (art.images[1] ? getWebpPath(art.images[1], 'medium') : imgMedium);
+        const imgTert = art.images[3] ? getWebpPath(art.images[3], 'medium') : (art.images[2] ? getWebpPath(art.images[2], 'medium') : imgMedium);
         const statusClass = 'status-' + art.availability.toLowerCase().replace(/\s+/g, '-');
         const hasGallery = art.images.length > 1 ? 'has-gallery' : '';
         
-        let imageTags = `<img class="image-primary" src="${imgMedium}" alt="${art.title} — original ${art.medium.toLowerCase()} by ${art.artist || 'Shweta Jain Maheshwari'}" loading="lazy">`;
+        let imageTags = `<img class="image-primary" src="${imgMedium}" alt="${art.title} — original ${art.medium.toLowerCase()} by ${art.artist || 'Shweta Jain Maheshwari'}" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">`;
         if (art.images.length > 1) {
-          imageTags += `\n              <img class="image-secondary" src="${imgAlt}" alt="${art.title} alternate view" loading="lazy">`;
-          imageTags += `\n              <img class="image-tertiary" src="${imgTert}" alt="${art.title} detail view" loading="lazy">`;
+          imageTags += `\n              <img class="image-secondary" src="${imgAlt}" alt="${art.title} alternate view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">`;
+          imageTags += `\n              <img class="image-tertiary" src="${imgTert}" alt="${art.title} detail view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">`;
         }
         
         let priceHtml = '';
@@ -784,14 +786,16 @@ pagesToCompile.forEach(page => {
               <span style="font-size: 0.9rem; color: var(--muted); font-weight: 500;">Available on Inquiry</span>`;
         }
 
+        const artistBadge = (art.artist && art.artist !== 'Shweta Jain Maheshwari') ? ` • By ${art.artist}` : '';
+
         cardsHtml += `
         <article class="collection-card ${hasGallery}" data-reveal style="background: #ffffff;">
           <a href="pieces/${art.slug}.html" style="text-decoration: none; color: inherit; display: grid;">
-            <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa;">
+            <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa; position: relative;">
               ${imageTags}
             </div>
             <div class="piece-copy" style="padding: 20px 0 15px;">
-              <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">${art.inventoryCode} • ${art.medium}</span>
+              <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">${art.inventoryCode} • ${art.medium}${artistBadge}</span>
               <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">${art.title}</h3>${priceHtml}
               <span class="status-tag ${statusClass}" style="margin-top: 8px;">${art.availability}</span>
               <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">View Details</span>
