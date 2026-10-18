@@ -573,7 +573,7 @@ artworks.forEach(art => {
 
   const mainImgLarge = getWebpPath(art.images[0], 'large');
   const mainImgMedium = getWebpPath(art.images[0], 'medium');
-  const ogImage = `https://swetastudio.com/${encodeURI(mainImgLarge)}`;
+  const ogImage = `https://shwetastudio.com/${encodeURI(mainImgLarge)}`;
 
   const isPainting = art.category === 'Paintings';
   const isSculpture = art.category === 'Sculptures';
@@ -581,8 +581,8 @@ artworks.forEach(art => {
   const artworkEntity = {
     "@type": (isPainting || isSculpture) ? "VisualArtwork" : ["VisualArtwork", "Product"],
     "name": art.title,
-    "url": `https://swetastudio.com/pieces/${art.slug}.html`,
-    "image": `https://swetastudio.com/${encodeURI(mainImgLarge)}`,
+    "url": `https://shwetastudio.com/pieces/${art.slug}.html`,
+    "image": `https://shwetastudio.com/${encodeURI(mainImgLarge)}`,
     "description": descriptionText || `${art.title} is an original ${art.medium} artwork by contemporary artist ${artistName}.`,
     "artMedium": art.medium,
     "artworkSurface": art.artworkSurface ? art.artworkSurface : (art.category === 'Paintings' ? (art.medium.toLowerCase().includes('paper') ? 'Paper' : art.medium.toLowerCase().includes('cloth') ? 'Cloth' : (art.medium.toLowerCase().includes('talapatra') || art.medium.toLowerCase().includes('palm')) ? 'Palm Leaf' : (art.medium.toLowerCase() === 'pencil colour' || art.medium.toLowerCase() === 'modern painting' ? undefined : 'Canvas')) : (art.medium && art.medium.toLowerCase().includes('cardboard') ? 'Cardboard' : 'Clay')),
@@ -593,12 +593,12 @@ artworks.forEach(art => {
     "creator": {
       "@type": "Person",
       "name": artistName,
-      "sameAs": artistName === 'Shweta Jain Maheshwari' ? "https://swetastudio.com/story.html" : undefined
+      "sameAs": artistName === 'Shweta Jain Maheshwari' ? "https://shwetastudio.com/story.html" : undefined
     },
     "artist": {
       "@type": "Person",
       "name": artistName,
-      "sameAs": artistName === 'Shweta Jain Maheshwari' ? "https://swetastudio.com/story.html" : undefined
+      "sameAs": artistName === 'Shweta Jain Maheshwari' ? "https://shwetastudio.com/story.html" : undefined
     },
     "brand": {
       "@type": "Brand",
@@ -612,7 +612,7 @@ artworks.forEach(art => {
   if (art.category === 'Jewellery' && art.price) {
     artworkEntity.offers = {
       "@type": "Offer",
-      "url": `https://swetastudio.com/pieces/${art.slug}.html`,
+      "url": `https://shwetastudio.com/pieces/${art.slug}.html`,
       "price": art.price.replace(/[^0-9.]/g, ''),
       "priceCurrency": "USD",
       "itemCondition": "https://schema.org/NewCondition",
@@ -630,25 +630,25 @@ artworks.forEach(art => {
             "@type": "ListItem",
             "position": 1,
             "name": "Home",
-            "item": "https://swetastudio.com/index.html"
+            "item": "https://shwetastudio.com/index.html"
           },
           {
             "@type": "ListItem",
             "position": 2,
             "name": "Collections",
-            "item": "https://swetastudio.com/works.html"
+            "item": "https://shwetastudio.com/works.html"
           },
           {
             "@type": "ListItem",
             "position": 3,
             "name": displayCategory,
-            "item": `https://swetastudio.com/${art.category.toLowerCase()}.html`
+            "item": `https://shwetastudio.com/${art.category.toLowerCase()}.html`
           },
           {
             "@type": "ListItem",
             "position": 4,
             "name": art.title,
-            "item": `https://swetastudio.com/pieces/${art.slug}.html`
+            "item": `https://shwetastudio.com/pieces/${art.slug}.html`
           }
         ]
       },
@@ -1056,7 +1056,7 @@ const todayStr = '2026-09-26';
 
 rootPages.forEach(p => {
   sitemapXml += `  <url>
-    <loc>https://swetastudio.com/${p}</loc>
+    <loc>https://shwetastudio.com/${p}</loc>
     <lastmod>${todayStr}</lastmod>
     <changefreq>${p === 'index.html' ? 'daily' : (p.includes('html') ? 'weekly' : 'monthly')}</changefreq>
     <priority>${p === 'index.html' ? '1.0' : (p === 'paintings.html' || p === 'works.html' ? '0.9' : '0.8')}</priority>
@@ -1065,7 +1065,7 @@ rootPages.forEach(p => {
 
 sitemapLinks.forEach(p => {
   sitemapXml += `  <url>
-    <loc>https://swetastudio.com/${p}</loc>
+    <loc>https://shwetastudio.com/${p}</loc>
     <lastmod>${todayStr}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
@@ -1081,7 +1081,7 @@ console.log('Generating robots.txt...');
 const robotsTxt = `User-agent: *
 Allow: /
 
-Sitemap: https://swetastudio.com/sitemap.xml
+Sitemap: https://shwetastudio.com/sitemap.xml
 `;
 fs.writeFileSync('./robots.txt', robotsTxt, 'utf-8');
 console.log('robots.txt generated successfully.');
