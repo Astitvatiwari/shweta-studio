@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-S7G0T169VN"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-S7G0T169VN');
+  </script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shopping Bag | Shweta Studio</title>
+  <meta name="description" content="Review your selected original paintings, terracotta sculptures, and handcrafted jewellery acquisitions at Shweta Studio.">
+  <link rel="canonical" href="https://shwetastudio.com/cart.html">
+  <meta name="robots" content="noindex, follow">
+
+  <!-- Fonts & Styles -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/layout.css">
+  <link rel="stylesheet" href="styles/collections.css">
+  <link rel="stylesheet" href="styles/ecommerce.css">
+  <link rel="stylesheet" href="styles/responsive.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="index.html" aria-label="SHWETA STUDIO home">
+        <img src="all work/logo/logo with name.png" alt="Shweta Studio Logo" loading="eager" class="header-logo">
+      </a>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+      <nav class="site-nav" id="site-nav" aria-label="Primary navigation">
+        <a href="index.html">Home</a>
+        <div class="nav-dropdown-wrapper">
+          <a href="works.html">Collections</a>
+          <div class="nav-dropdown">
+            <a href="sculptures.html">Sculptures</a>
+            <a href="paintings.html">Paintings</a>
+            <a href="jewellery.html">Jewellery &amp; Handmade Creations</a>
+          </div>
+        </div>
+        <a href="story.html">Story</a>
+        <a href="engagements.html">Public Engagements</a>
+        <a href="contact.html">Contact</a>
+      </nav>
+      <div class="header-tools">
+        <a class="tool-link" href="works.html">View Collections</a>
+        <a class="tool-link tool-link-filled" href="contact.html">Inquire</a>
+        <a class="tool-link-cart" href="cart.html" id="header-cart-btn" onclick="event.preventDefault(); window.toggleCartDrawer && window.toggleCartDrawer();" aria-label="Shopping Cart">
+          <svg class="cart-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <path d="M16 10a4 4 0 0 1-8 0"></path>
+          </svg>
+          <span class="cart-text">Bag</span>
+          <span class="cart-badge" id="cart-item-count">0</span>
+        </a>
+      </div>
+    </header>
+
+    <main class="page-stack" style="padding-top: 20px;">
+      <section class="page-intro">
+        <p class="eyebrow"><a href="works.html" style="text-decoration: none; color: var(--clay);">&larr; Continue Exploring Collections</a></p>
+        <h1 style="font-family: 'Cormorant Garamond', serif; font-weight: 500; margin: 4px 0 8px;">Shopping Bag</h1>
+        <p style="color: var(--muted); font-size: 0.95rem; margin: 0;">Review your curated acquisitions before proceeding to secure studio checkout.</p>
+      </section>
+
+      <div id="cart-page-content" class="checkout-grid">
+        <!-- Left: Cart Items List -->
+        <div>
+          <div id="cart-page-items" style="display: flex; flex-direction: column; gap: 16px;"></div>
+        </div>
+
+        <!-- Right: Order Summary Box -->
+        <div>
+          <div class="checkout-order-summary" id="cart-page-summary">
+            <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.45rem; font-weight: 500; margin: 0; color: var(--charcoal); border-bottom: 1px solid var(--line); padding-bottom: 12px;">
+              Summary
+            </h3>
+
+            <div class="checkout-price-row">
+              <span>Items Total</span>
+              <strong id="cart-summary-subtotal">₹0</strong>
+            </div>
+
+            <div class="checkout-price-row">
+              <span>Shipping &amp; Insurance</span>
+              <span style="color: var(--sage); font-weight: 500;">Calculated at Checkout</span>
+            </div>
+
+            <div class="checkout-price-row total">
+              <span>Estimated Total</span>
+              <strong id="cart-summary-total">₹0</strong>
+            </div>
+
+            <div style="background: rgba(92, 99, 88, 0.08); border-left: 3px solid var(--sage); padding: 10px 14px; font-size: 0.8rem; color: var(--sage); line-height: 1.5; border-radius: 4px;">
+              &check; <strong>Certificate of Authenticity:</strong> Every piece is hand-signed and accompanied by an official authentication document.
+            </div>
+
+            <a href="checkout.html" class="btn-checkout-drawer" style="padding: 14px; font-size: 0.88rem;">
+              Proceed to Checkout &rarr;
+            </a>
+
+            <button type="button" class="btn-view-cart-drawer" onclick="window.clearCart && window.clearCart(); renderCartPage();">
+              Clear Shopping Bag
+            </button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-copyright-block">
+        <div style="margin-bottom: 12px;">
+          <img src="all work/logo/logo with name.png" alt="Shweta Studio Logo" loading="lazy" style="width: 160px; height: auto; display: block;">
+        </div>
+        <p>Artist: Shweta Jain Maheshwari</p>
+        <p style="font-size: 0.72rem; color: var(--muted); margin-top: 6px; line-height: 1.5; max-width: 500px;">
+          &copy; 2026 Shweta Studio. All artworks, photographs, text, and visual content are protected by copyright. Unauthorized reproduction or commercial use is prohibited.
+        </p>
+      </div>
+      <span>
+        <a href="commission.html" style="margin-right: 15px;">Commission</a>
+        <a href="faq.html" style="margin-right: 15px;">FAQ</a>
+        <a href="works.html">Collections</a>
+      </span>
+    </footer>
+  </div>
+
+  <script type="module" src="scripts/main.js"></script>
+  <script type="module">
+    import { getCart, removeFromCart, updateCartQuantity } from './scripts/cart.js';
+
+    function renderCartPage() {
+      const container = document.getElementById('cart-page-items');
+      const contentGrid = document.getElementById('cart-page-content');
+      const subtotalEl = document.getElementById('cart-summary-subtotal');
+      const totalEl = document.getElementById('cart-summary-total');
+
+      if (!container) return;
+
+      const cart = getCart();
+
+      if (cart.length === 0) {
+        if (contentGrid) {
+          contentGrid.innerHTML = `
+            <div style="grid-column: span 2; text-align: center; padding: 60px 20px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
+              <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; font-weight: 400; margin: 0 0 10px; color: var(--charcoal);">Your Shopping Bag is Empty</h3>
+              <p style="color: var(--muted); font-size: 0.9rem; max-width: 480px; margin: 0 auto 24px; line-height: 1.6;">Discover our handcrafted 1-of-1 terracotta sculptures, contemporary paintings, and fine jewellery.</p>
+              <a href="works.html" class="card-btn card-btn-primary" style="padding: 12px 28px; font-size: 0.84rem; display: inline-block;">
+                Explore Collections
+              </a>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      let subtotal = 0;
+      let html = '';
+
+      cart.forEach(item => {
+        const isOriginal = item.purchaseType === 'original';
+        const numPrice = parseFloat(String(item.unitPrice || item.priceInr || item.price || '0').replace(/[^0-9.]/g, '')) || 0;
+        const lineTotal = numPrice * (item.quantity || 1);
+        subtotal += lineTotal;
+
+        const tagLabel = isOriginal ? '1-of-1 Physical Original' : (item.purchaseType === 'commission' ? 'Made-to-Order Customization' : 'Handmade Creation');
+        const tagClass = isOriginal ? 'cart-tag-original' : (item.purchaseType === 'commission' ? 'cart-tag-custom' : 'cart-tag-stocked');
+
+        html += `
+          <div style="background: #ffffff; border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: grid; grid-template-columns: 88px 1fr auto; gap: 20px; align-items: center;">
+            <img src="${item.image || ''}" alt="${item.title}" style="width: 88px; height: 88px; object-fit: contain; background: #fafafa; border: 1px solid var(--line); border-radius: 4px;">
+            <div>
+              <span class="cart-item-tag ${tagClass}">${tagLabel}</span>
+              <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.35rem; font-weight: 500; margin: 4px 0 2px; color: var(--charcoal);">${item.title}</h3>
+              <div style="font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;">
+                ${item.inventoryCode} &bull; ${item.medium || item.category}
+              </div>
+              ${item.customDimensions ? `<div style="font-size: 0.76rem; color: var(--muted); margin-top: 3px;">Dimensions: ${item.customDimensions}</div>` : ''}
+              ${item.preparationTime ? `<div style="font-size: 0.76rem; color: var(--sage); margin-top: 3px;">⏱ Preparation: ${item.preparationTime}</div>` : ''}
+              <div style="font-size: 1.05rem; font-weight: 600; color: var(--clay); margin-top: 6px;">${item.unitPrice || item.priceInr || item.price}</div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 12px;">
+              ${isOriginal ? `
+                <span style="font-size: 0.78rem; font-weight: 600; color: var(--clay); background: #f4efe9; padding: 4px 10px; border-radius: 4px;">Qty: 1 (Original)</span>
+              ` : `
+                <div class="qty-control">
+                  <button type="button" class="qty-btn" onclick="window.updateCartQuantity('${item.id}', ${item.quantity - 1}); renderCartPage();">&minus;</button>
+                  <span class="qty-num">${item.quantity}</span>
+                  <button type="button" class="qty-btn" onclick="window.updateCartQuantity('${item.id}', ${item.quantity + 1}); renderCartPage();" ${item.quantity >= (item.maxQuantity || 5) ? 'disabled' : ''}>&plus;</button>
+                </div>
+              `}
+              <button type="button" class="cart-item-remove" onclick="window.removeFromCart('${item.id}'); renderCartPage();" style="font-size: 0.78rem;">
+                Remove piece
+              </button>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+
+      const formatted = `₹${subtotal.toLocaleString('en-IN')}`;
+      if (subtotalEl) subtotalEl.innerText = formatted;
+      if (totalEl) totalEl.innerText = formatted;
+    }
+
+    window.renderCartPage = renderCartPage;
+    document.addEventListener('DOMContentLoaded', renderCartPage);
+    window.addEventListener('cart:updated', renderCartPage);
+  </script>
+</body>
+</html>

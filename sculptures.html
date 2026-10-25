@@ -41,6 +41,7 @@
   <link rel="stylesheet" href="styles/forms.css">
   <link rel="stylesheet" href="styles/animations.css">
   <link rel="stylesheet" href="styles/responsive.css">
+  <link rel="stylesheet" href="styles/ecommerce.css">
 </head>
 <body>
   <div class="page-shell">
@@ -66,6 +67,11 @@
       </nav>
       <div class="header-tools">
         <a class="tool-link" href="works.html">View Collections</a>
+        <a class="tool-link-cart" href="cart.html" id="header-cart-btn" aria-label="Shopping Cart">
+          <svg class="cart-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+          <span class="cart-text">Cart</span>
+          <span class="cart-badge" style="display:none;">0</span>
+        </a>
         <a class="tool-link tool-link-filled" href="contact.html">Inquire</a>
       </div>
     </header>
@@ -88,7 +94,7 @@
               <img class="image-secondary" src="all work/scuptures/beyond the shell/Beyond the Shell 2_medium.webp" alt="The Silent Traveler alternate view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
               <img class="image-tertiary" src="all work/scuptures/beyond the shell/Beyond the Shell 1_medium.webp" alt="The Silent Traveler detail view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
             </div>
-            <div class="piece-copy" style="padding: 20px 0 15px;">
+            <div class="piece-copy" style="padding: 20px 0 10px;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">SS-SC-001 • Terracotta Clay</span>
               <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">The Silent Traveler</h3>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding: 8px 10px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
@@ -102,9 +108,13 @@
                 </div>
               </div>
               <span class="status-tag status-available-on-inquiry" style="margin-top: 8px;">Available on Inquiry</span>
-              <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">View Details</span>
             </div>
           </a>
+
+          <div class="card-action-bar inquiry-only">
+            <a href="pieces/beyond-the-shell.html#inquiry-container" class="card-btn card-btn-primary" style="width: 100%;">Inquire Now</a>
+            <a href="pieces/beyond-the-shell.html" class="card-btn card-btn-text">Details</a>
+          </div>
         </article>
         <article class="collection-card has-gallery" data-reveal style="background: #ffffff;">
           <a href="pieces/candle.html" style="text-decoration: none; color: inherit; display: grid;">
@@ -113,7 +123,7 @@
               <img class="image-secondary" src="all work/scuptures/candle/candle 2_medium.webp" alt="Waxen Form alternate view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
               <img class="image-tertiary" src="all work/scuptures/candle/candle 4_medium.webp" alt="Waxen Form detail view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
             </div>
-            <div class="piece-copy" style="padding: 20px 0 15px;">
+            <div class="piece-copy" style="padding: 20px 0 10px;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">SS-SC-002 • Terracotta Clay</span>
               <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">Waxen Form</h3>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding: 8px 10px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
@@ -127,9 +137,14 @@
                 </div>
               </div>
               <span class="status-tag status-available" style="margin-top: 8px;">Available</span>
-              <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">View Details</span>
             </div>
           </a>
+
+          <div class="card-action-bar">
+            <button type="button" class="card-btn card-btn-primary" onclick="event.preventDefault(); event.stopPropagation(); handleCardBuyNow('SS-SC-002', 'original', event)">Buy Now</button>
+            <button type="button" class="card-btn card-btn-secondary" onclick="event.preventDefault(); event.stopPropagation(); handleCardAddToCart('SS-SC-002', 'original', event)">Add to Bag</button>
+            <a href="pieces/candle.html" class="card-btn card-btn-text">View</a>
+          </div>
         </article>
         <article class="collection-card has-gallery" data-reveal style="background: #ffffff;">
           <a href="pieces/inner-sentinel.html" style="text-decoration: none; color: inherit; display: grid;">
@@ -138,7 +153,7 @@
               <img class="image-secondary" src="all work/scuptures/Inner Sentinel/Inner Sentinel 2_medium.webp" alt="Hands of Hope alternate view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
               <img class="image-tertiary" src="all work/scuptures/Inner Sentinel/Inner Sentinel 4_medium.webp" alt="Hands of Hope detail view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
             </div>
-            <div class="piece-copy" style="padding: 20px 0 15px;">
+            <div class="piece-copy" style="padding: 20px 0 10px;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">SS-SC-003 • Terracotta Clay</span>
               <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">Hands of Hope</h3>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding: 8px 10px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
@@ -152,9 +167,13 @@
                 </div>
               </div>
               <span class="status-tag status-available-on-inquiry" style="margin-top: 8px;">Available on Inquiry</span>
-              <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">View Details</span>
             </div>
           </a>
+
+          <div class="card-action-bar inquiry-only">
+            <a href="pieces/inner-sentinel.html#inquiry-container" class="card-btn card-btn-primary" style="width: 100%;">Inquire Now</a>
+            <a href="pieces/inner-sentinel.html" class="card-btn card-btn-text">Details</a>
+          </div>
         </article>
         <article class="collection-card has-gallery" data-reveal style="background: #ffffff;">
           <a href="pieces/seed-form.html" style="text-decoration: none; color: inherit; display: grid;">
@@ -163,7 +182,7 @@
               <img class="image-secondary" src="all work/scuptures/seed form/Seed Form 2_medium.webp" alt="The Hidden Fortune alternate view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
               <img class="image-tertiary" src="all work/scuptures/seed form/Seed Form 1_medium.webp" alt="The Hidden Fortune detail view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
             </div>
-            <div class="piece-copy" style="padding: 20px 0 15px;">
+            <div class="piece-copy" style="padding: 20px 0 10px;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">SS-SC-004 • Terracotta Clay</span>
               <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">The Hidden Fortune</h3>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding: 8px 10px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
@@ -177,9 +196,14 @@
                 </div>
               </div>
               <span class="status-tag status-reserved" style="margin-top: 8px;">Reserved</span>
-              <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">View Details</span>
             </div>
           </a>
+
+          <div class="card-action-bar sold-out">
+            <span class="card-btn card-btn-secondary" style="cursor: not-allowed; opacity: 0.65; background: #f5f5f5;">Reserved</span>
+            <a href="pieces/seed-form.html#customization-modal" class="card-btn card-btn-primary">Customize</a>
+            <a href="pieces/seed-form.html" class="card-btn card-btn-text">View</a>
+          </div>
         </article>
         <article class="collection-card has-gallery" data-reveal style="background: #ffffff;">
           <a href="pieces/shell-study.html" style="text-decoration: none; color: inherit; display: grid;">
@@ -188,14 +212,18 @@
               <img class="image-secondary" src="all work/scuptures/shell study/shell study 2_medium.webp" alt="Beneath the Shell alternate view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
               <img class="image-tertiary" src="all work/scuptures/shell study/shell study 4_medium.webp" alt="Beneath the Shell detail view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
             </div>
-            <div class="piece-copy" style="padding: 20px 0 15px;">
+            <div class="piece-copy" style="padding: 20px 0 10px;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">SS-SC-005 • Terracotta Clay</span>
               <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">Beneath the Shell</h3>
               <span style="font-size: 0.9rem; color: var(--muted); font-weight: 500;">Available on Inquiry</span>
               <span class="status-tag status-available-on-inquiry" style="margin-top: 8px;">Available on Inquiry</span>
-              <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">View Details</span>
             </div>
           </a>
+
+          <div class="card-action-bar inquiry-only">
+            <a href="pieces/shell-study.html#inquiry-container" class="card-btn card-btn-primary" style="width: 100%;">Inquire Now</a>
+            <a href="pieces/shell-study.html" class="card-btn card-btn-text">Details</a>
+          </div>
         </article>
         <article class="collection-card has-gallery" data-reveal style="background: #ffffff;">
           <a href="pieces/spirit-of-the-wild.html" style="text-decoration: none; color: inherit; display: grid;">
@@ -204,7 +232,7 @@
               <img class="image-secondary" src="all work/scuptures/sprit of the wild/Spirit of the Wild 2_medium.webp" alt="Guardian of Power alternate view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
               <img class="image-tertiary" src="all work/scuptures/sprit of the wild/Spirit of the Wild 4_medium.webp" alt="Guardian of Power detail view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
             </div>
-            <div class="piece-copy" style="padding: 20px 0 15px;">
+            <div class="piece-copy" style="padding: 20px 0 10px;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">SS-SC-006 • Terracotta Clay</span>
               <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">Guardian of Power</h3>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding: 8px 10px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
@@ -218,9 +246,13 @@
                 </div>
               </div>
               <span class="status-tag status-available-on-inquiry" style="margin-top: 8px;">Available on Inquiry</span>
-              <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">View Details</span>
             </div>
           </a>
+
+          <div class="card-action-bar inquiry-only">
+            <a href="pieces/spirit-of-the-wild.html#inquiry-container" class="card-btn card-btn-primary" style="width: 100%;">Inquire Now</a>
+            <a href="pieces/spirit-of-the-wild.html" class="card-btn card-btn-text">Details</a>
+          </div>
         </article>
         <article class="collection-card has-gallery" data-reveal style="background: #ffffff;">
           <a href="pieces/the-inner-citadel.html" style="text-decoration: none; color: inherit; display: grid;">
@@ -229,14 +261,18 @@
               <img class="image-secondary" src="all work/scuptures/the inner citadal/The Inner Citadel 2_medium.webp" alt="The Secret Kingdom alternate view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
               <img class="image-tertiary" src="all work/scuptures/the inner citadal/The Inner Citadel 1_medium.webp" alt="The Secret Kingdom detail view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
             </div>
-            <div class="piece-copy" style="padding: 20px 0 15px;">
+            <div class="piece-copy" style="padding: 20px 0 10px;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">SS-SC-007 • Terracotta Clay</span>
               <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">The Secret Kingdom</h3>
               <span style="font-size: 0.9rem; color: var(--muted); font-weight: 500;">Available on Inquiry</span>
               <span class="status-tag status-available-on-inquiry" style="margin-top: 8px;">Available on Inquiry</span>
-              <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">View Details</span>
             </div>
           </a>
+
+          <div class="card-action-bar inquiry-only">
+            <a href="pieces/the-inner-citadel.html#inquiry-container" class="card-btn card-btn-primary" style="width: 100%;">Inquire Now</a>
+            <a href="pieces/the-inner-citadel.html" class="card-btn card-btn-text">Details</a>
+          </div>
         </article>
         <article class="collection-card has-gallery" data-reveal style="background: #ffffff;">
           <a href="pieces/unzipped-identity.html" style="text-decoration: none; color: inherit; display: grid;">
@@ -245,7 +281,7 @@
               <img class="image-secondary" src="all work/scuptures/Unzipped identity/Unzipped Identity 2_medium.webp" alt="Two Faces alternate view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
               <img class="image-tertiary" src="all work/scuptures/Unzipped identity/Unzipped Identity 4_medium.webp" alt="Two Faces detail view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
             </div>
-            <div class="piece-copy" style="padding: 20px 0 15px;">
+            <div class="piece-copy" style="padding: 20px 0 10px;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">SS-SC-008 • Terracotta Clay</span>
               <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">Two Faces</h3>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding: 8px 10px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
@@ -259,37 +295,49 @@
                 </div>
               </div>
               <span class="status-tag status-available-on-inquiry" style="margin-top: 8px;">Available on Inquiry</span>
-              <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">View Details</span>
             </div>
           </a>
+
+          <div class="card-action-bar inquiry-only">
+            <a href="pieces/unzipped-identity.html#inquiry-container" class="card-btn card-btn-primary" style="width: 100%;">Inquire Now</a>
+            <a href="pieces/unzipped-identity.html" class="card-btn card-btn-text">Details</a>
+          </div>
         </article>
         <article class="collection-card " data-reveal style="background: #ffffff;">
           <a href="pieces/the-eternal-guardian.html" style="text-decoration: none; color: inherit; display: grid;">
             <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa; position: relative;">
               <img class="image-primary" src="all work/scuptures/The Eternal Guardian 1_medium.webp" alt="The Eternal Guardian — original terracotta clay by Shweta Jain Maheshwari" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
             </div>
-            <div class="piece-copy" style="padding: 20px 0 15px;">
+            <div class="piece-copy" style="padding: 20px 0 10px;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">SS-SC-009 • Terracotta Clay</span>
               <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">The Eternal Guardian</h3>
               <span style="font-size: 0.9rem; color: var(--muted); font-weight: 500;">Available on Inquiry</span>
               <span class="status-tag status-available-on-inquiry" style="margin-top: 8px;">Available on Inquiry</span>
-              <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">View Details</span>
             </div>
           </a>
+
+          <div class="card-action-bar inquiry-only">
+            <a href="pieces/the-eternal-guardian.html#inquiry-container" class="card-btn card-btn-primary" style="width: 100%;">Inquire Now</a>
+            <a href="pieces/the-eternal-guardian.html" class="card-btn card-btn-text">Details</a>
+          </div>
         </article>
         <article class="collection-card " data-reveal style="background: #ffffff;">
           <a href="pieces/the-humble-traveler.html" style="text-decoration: none; color: inherit; display: grid;">
             <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa; position: relative;">
               <img class="image-primary" src="all work/scuptures/The Humble Traveler 1_medium.webp" alt="Companion — original terracotta clay by Shweta Jain Maheshwari" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
             </div>
-            <div class="piece-copy" style="padding: 20px 0 15px;">
+            <div class="piece-copy" style="padding: 20px 0 10px;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">SS-SC-010 • Terracotta Clay</span>
               <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">Companion</h3>
               <span style="font-size: 0.9rem; color: var(--muted); font-weight: 500;">Available on Inquiry</span>
               <span class="status-tag status-available-on-inquiry" style="margin-top: 8px;">Available on Inquiry</span>
-              <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">View Details</span>
             </div>
           </a>
+
+          <div class="card-action-bar inquiry-only">
+            <a href="pieces/the-humble-traveler.html#inquiry-container" class="card-btn card-btn-primary" style="width: 100%;">Inquire Now</a>
+            <a href="pieces/the-humble-traveler.html" class="card-btn card-btn-text">Details</a>
+          </div>
         </article>
         <article class="collection-card has-gallery" data-reveal style="background: #ffffff;">
           <a href="pieces/sharabha-the-cosmic-subduer-of-narasimha.html" style="text-decoration: none; color: inherit; display: grid;">
@@ -298,14 +346,18 @@
               <img class="image-secondary" src="all work/scuptures/narasimha/narasimha-full-front-view-primary_medium.webp" alt="Narasimha alternate view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
               <img class="image-tertiary" src="all work/scuptures/narasimha/narasimha-face-closeup-front_medium.webp" alt="Narasimha detail view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">
             </div>
-            <div class="piece-copy" style="padding: 20px 0 15px;">
+            <div class="piece-copy" style="padding: 20px 0 10px;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">SS-SC-011 • Layered Corrugated Cardboard • By Mukul Thakur</span>
               <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">Narasimha</h3>
               <span style="font-size: 0.9rem; color: var(--muted); font-weight: 500;">Available on Inquiry</span>
               <span class="status-tag status-available-on-inquiry" style="margin-top: 8px;">Available on Inquiry</span>
-              <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">View Details</span>
             </div>
           </a>
+
+          <div class="card-action-bar inquiry-only">
+            <a href="pieces/sharabha-the-cosmic-subduer-of-narasimha.html#inquiry-container" class="card-btn card-btn-primary" style="width: 100%;">Inquire Now</a>
+            <a href="pieces/sharabha-the-cosmic-subduer-of-narasimha.html" class="card-btn card-btn-text">Details</a>
+          </div>
         </article>
       </section>
 <!-- AUTO_CARDS_END -->

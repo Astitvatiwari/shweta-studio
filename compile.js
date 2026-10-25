@@ -37,6 +37,11 @@ const headerHtml = `<header class="site-header">
       </nav>
       <div class="header-tools">
         <a class="tool-link" href="works.html">View Collections</a>
+        <a class="tool-link-cart" href="cart.html" id="header-cart-btn" aria-label="Shopping Cart">
+          <svg class="cart-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+          <span class="cart-text">Cart</span>
+          <span class="cart-badge" style="display:none;">0</span>
+        </a>
         <a class="tool-link tool-link-filled" href="contact.html">Inquire</a>
       </div>
     </header>`;
@@ -202,6 +207,53 @@ const OLDER_PAINTING_SKUS = new Set([
 
 // Keep track of sitemap links
 const sitemapLinks = [];
+
+/**
+ * Render consistent e-commerce action buttons on collection cards.
+ * Complies with strict inventory rules:
+ * - Direct purchasable: Buy Now + Add to Bag + View
+ * - Sold unique original: Sold (disabled) + Customize + View
+ * - Available on inquiry / unpriced: Inquire Now + Details
+ */
+function renderCardActions(art, cardStatus) {
+  const isDirectPurchasable = Boolean(art.price && art.availability !== 'Available on Inquiry');
+  const isSold = cardStatus === 'Sold';
+  const isReserved = cardStatus === 'Reserved';
+
+  if (!isDirectPurchasable) {
+    return `
+          <div class="card-action-bar inquiry-only">
+            <a href="pieces/${art.slug}.html#inquiry-container" class="card-btn card-btn-primary" style="width: 100%;">Inquire Now</a>
+            <a href="pieces/${art.slug}.html" class="card-btn card-btn-text">Details</a>
+          </div>`;
+  }
+
+  if (isSold) {
+    return `
+          <div class="card-action-bar sold-out">
+            <span class="card-btn card-btn-secondary" style="cursor: not-allowed; opacity: 0.65; background: #f5f5f5;">Sold</span>
+            <a href="pieces/${art.slug}.html#customization-modal" class="card-btn card-btn-primary">Customize</a>
+            <a href="pieces/${art.slug}.html" class="card-btn card-btn-text">View</a>
+          </div>`;
+  }
+
+  if (isReserved) {
+    return `
+          <div class="card-action-bar sold-out">
+            <span class="card-btn card-btn-secondary" style="cursor: not-allowed; opacity: 0.65; background: #f5f5f5;">Reserved</span>
+            <a href="pieces/${art.slug}.html#customization-modal" class="card-btn card-btn-primary">Customize</a>
+            <a href="pieces/${art.slug}.html" class="card-btn card-btn-text">View</a>
+          </div>`;
+  }
+
+  const purchaseType = art.category === 'Jewellery' ? 'stocked' : 'original';
+  return `
+          <div class="card-action-bar">
+            <button type="button" class="card-btn card-btn-primary" onclick="event.preventDefault(); event.stopPropagation(); handleCardBuyNow('${art.inventoryCode}', '${purchaseType}', event)">Buy Now</button>
+            <button type="button" class="card-btn card-btn-secondary" onclick="event.preventDefault(); event.stopPropagation(); handleCardAddToCart('${art.inventoryCode}', '${purchaseType}', event)">Add to Bag</button>
+            <a href="pieces/${art.slug}.html" class="card-btn card-btn-text">View</a>
+          </div>`;
+}
 
 // 4. Compile each artwork detail page from pieces/detail_template.html
 if (!fs.existsSync(DETAIL_TEMPLATE_PATH)) {
@@ -446,29 +498,71 @@ artworks.forEach(art => {
     pricingBoxesHtml = `<strong style="font-size: 1.8rem; color: var(--clay); font-weight: 500;">${art.price}</strong>`;
   }
 
-  // Two Separate Options Presentation Block (Section 3 & Section 8)
-  const originalStatusTagText = isSold ? 'Original Sold' : (isReserved ? 'Original Reserved' : 'Original Available &bull; 1/1 Unique Piece');
-  const originalButtonHtml = isSold
-    ? `<button type="button" class="button" id="btn-buy-original" disabled style="width: 100%; border-radius: 4px; font-weight: 600; cursor: not-allowed; letter-spacing: 0.06em; text-transform: uppercase; background: #f0f0f0; color: #888; border: 1px solid #ddd; font-size: 0.78rem;">Original Sold</button>`
-    : (isReserved
-      ? `<button type="button" class="button" id="btn-buy-original" disabled style="width: 100%; border-radius: 4px; font-weight: 600; cursor: not-allowed; letter-spacing: 0.06em; text-transform: uppercase; background: #f0f0f0; color: #888; border: 1px solid #ddd; font-size: 0.78rem;">Original Reserved</button>`
-      : `<button type="button" class="button button-primary" id="btn-buy-original" onclick="openOriginalPurchaseModal()" style="width: 100%; border-radius: 4px; font-weight: 600; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.78rem;">Buy Original</button>`);
+  // Presentation Block based on artwork type:
+  // 1. Inquiry-only products (Available on inquiry / unpriced sculptures)
+  // 2. Multi-unit stock (Jewellery)
+  // 3. Unique physical originals (Paintings, priced sculptures like SS-SC-002)
+  const isDirectPurchasable = Boolean(art.price && art.availability !== 'Available on Inquiry');
+  const isJewellery = art.category === 'Jewellery';
 
-  const soldBannerHtml = `
-        <div id="sold-original-banner" class="sold-original-banner" style="${isSold ? 'display: grid;' : 'display: none;'}">
-          <strong style="color: var(--clay-dark); font-size: 0.95rem;">Original Artwork Sold</strong>
-          <p style="margin: 0; font-size: 0.86rem; color: var(--charcoal); line-height: 1.5;">The original artwork has been sold. You can still commission a newly created version inspired by this piece.</p>
-        </div>`;
+  let purchaseOptionsBlock = '';
 
-  const priceDisplay = `
-        <div style="margin-top: 15px; margin-bottom: 12px;">
-          <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
-            <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 500;">Pricing Overview</span>
-            ${pricingBoxesHtml}
-          </div>
+  if (!isDirectPurchasable) {
+    purchaseOptionsBlock = `
+          <div class="purchase-options-wrapper">
+            <div style="background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; text-align: center; display: grid; gap: 12px;">
+              <span class="status-tag status-available" style="margin: 0 auto; padding: 4px 12px; font-size: 0.76rem;">Available on Inquiry</span>
+              <h4 style="font-family: 'Cormorant Garamond', serif; font-size: 1.6rem; font-weight: 500; margin: 0; color: var(--charcoal);">Acquisition via Gallery Inquiry</h4>
+              <p style="font-size: 0.86rem; color: var(--muted); line-height: 1.6; max-width: 520px; margin: 0 auto;">
+                This sculptural creation is handcrafted individually and presented through studio inquiry. Inquire below to receive pricing, custom specifications, or international shipping quotations.
+              </p>
+              <div style="display: flex; justify-content: center; gap: 12px; margin-top: 6px;">
+                <a href="#inquiry-container" class="button button-primary" style="padding: 10px 24px; border-radius: 4px; font-weight: 600; text-transform: uppercase; font-size: 0.78rem; text-decoration: none;">Inquire Now</a>
+                <a href="../contact.html" class="button button-secondary" style="padding: 10px 24px; border-radius: 4px; font-weight: 500; font-size: 0.78rem; text-decoration: none;">Contact Studio</a>
+              </div>
+            </div>
+          </div>`;
+  } else if (isJewellery) {
+    purchaseOptionsBlock = `
+          <div class="purchase-options-wrapper">
+            <div style="background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; display: grid; gap: 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; color: var(--clay);">Handmade Studio Creation</span>
+                <span class="status-tag status-available" style="margin: 0; font-size: 0.68rem; padding: 2px 8px;">In Stock</span>
+              </div>
+              <div>
+                <div style="font-size: 1.45rem; font-weight: 600; color: var(--clay);">${primaryPrice}</div>
+                <p style="font-size: 0.82rem; color: var(--muted); margin: 4px 0 0; line-height: 1.45;">Handmade jewellery piece. Individual creations may feature natural material variations. Dispatched in studio packaging.</p>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <label for="jewellery-qty-picker" style="font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; color: var(--muted);">Quantity:</label>
+                <select id="jewellery-qty-picker" style="padding: 6px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem; background: #ffffff;">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                </select>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <button type="button" class="button button-primary" onclick="const q = parseInt(document.getElementById('jewellery-qty-picker')?.value || 1, 10); window.location.href = '../checkout.html?buyNow=${art.inventoryCode}&type=stocked&quantity=' + q;" style="border-radius: 4px; font-weight: 600; text-transform: uppercase; font-size: 0.78rem; padding: 11px;">Buy Now</button>
+                <button type="button" class="button button-secondary" onclick="const q = parseInt(document.getElementById('jewellery-qty-picker')?.value || 1, 10); for(let i=0; i<q; i++){ handleCardAddToCart('${art.inventoryCode}', 'stocked', event); }" style="border-radius: 4px; font-weight: 600; text-transform: uppercase; font-size: 0.78rem; padding: 11px; border-color: var(--clay); color: var(--clay);">Add to Bag</button>
+              </div>
+            </div>
+          </div>`;
+  } else {
+    // Unique 1-of-1 Original Artworks (Paintings & Priced Sculptures)
+    const originalStatusTagText = isSold ? 'Original Sold' : (isReserved ? 'Original Reserved' : 'Original Available &bull; 1/1 Unique Piece');
+    const originalButtonHtml = isSold
+      ? `<button type="button" class="button" disabled style="width: 100%; border-radius: 4px; font-weight: 600; cursor: not-allowed; letter-spacing: 0.06em; text-transform: uppercase; background: #f0f0f0; color: #888; border: 1px solid #ddd; font-size: 0.78rem;">Original Sold</button>`
+      : (isReserved
+        ? `<button type="button" class="button" disabled style="width: 100%; border-radius: 4px; font-weight: 600; cursor: not-allowed; letter-spacing: 0.06em; text-transform: uppercase; background: #f0f0f0; color: #888; border: 1px solid #ddd; font-size: 0.78rem;">Original Reserved</button>`
+        : `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <button type="button" class="button button-primary" id="btn-buy-original" onclick="handleCardBuyNow('${art.inventoryCode}', 'original', event)" style="width: 100%; border-radius: 4px; font-weight: 600; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.76rem; padding: 10px 6px;">Buy Original</button>
+            <button type="button" class="button button-secondary" id="btn-add-original-cart" onclick="handleCardAddToCart('${art.inventoryCode}', 'original', event)" style="width: 100%; border-radius: 4px; font-weight: 600; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.76rem; padding: 10px 6px; border-color: var(--clay); color: var(--clay);">Add to Bag</button>
+          </div>`);
 
-          ${soldBannerHtml}
-
+    purchaseOptionsBlock = `
           <!-- Two Separate Options on Every Artwork Page (Option A & Option B) -->
           <div class="purchase-options-wrapper">
             <div class="purchase-options-grid">
@@ -516,7 +610,25 @@ artworks.forEach(art => {
                 </div>
               </div>
             </div>
+          </div>`;
+  }
+
+  const soldBannerHtml = `
+        <div id="sold-original-banner" class="sold-original-banner" style="${isSold ? 'display: grid;' : 'display: none;'}">
+          <strong style="color: var(--clay-dark); font-size: 0.95rem;">Original Artwork Sold</strong>
+          <p style="margin: 0; font-size: 0.86rem; color: var(--charcoal); line-height: 1.5;">The original artwork has been sold. You can still commission a newly created version inspired by this piece.</p>
+        </div>`;
+
+  const priceDisplay = `
+        <div style="margin-top: 15px; margin-bottom: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+            <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 500;">Pricing Overview</span>
+            ${pricingBoxesHtml}
           </div>
+
+          ${soldBannerHtml}
+
+          ${purchaseOptionsBlock}
         </div>`;
 
   const statusClass = isSold ? 'status-sold' : (isReserved ? 'status-sold' : 'status-' + currentStatus.toLowerCase().replace(/\s+/g, '-'));
@@ -849,13 +961,13 @@ pagesToCompile.forEach(page => {
             <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa; position: relative;">
               ${imageTags}
             </div>
-            <div class="piece-copy" style="padding: 20px 0 15px;">
+            <div class="piece-copy" style="padding: 20px 0 10px;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">${art.inventoryCode} • ${art.medium}${artistBadge}</span>
               <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">${art.title}</h3>${priceHtml}
               <span class="status-tag ${statusClass}" style="margin-top: 8px;">${cardStatus}</span>
-              <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">View Details</span>
             </div>
           </a>
+          ${renderCardActions(art, cardStatus)}
         </article>`;
       });
       cardsHtml += '\n      </section>';
@@ -913,14 +1025,14 @@ pagesToCompile.forEach(page => {
             <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa;">
                <img class="image-primary" src="${imgMedium}" alt="${art.title} — original ${art.medium.toLowerCase()} by ${art.artist || 'Shweta Jain Maheshwari'}" loading="lazy">
             </div>
-            <div class="piece-copy" style="padding: 20px 0 15px;">
+            <div class="piece-copy" style="padding: 20px 0 10px;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">${art.inventoryCode} • ${art.medium}</span>
               <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">${art.title}</h3>
               ${priceHtml}
               <span class="status-tag ${statusClass}" style="margin-top: 8px;">${cardStatus}</span>
-              <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">Request Availability</span>
             </div>
           </a>
+          ${renderCardActions(art, cardStatus)}
         </article>`;
       });
       cardsHtml += '\n      </section>';
@@ -955,7 +1067,7 @@ pagesToCompile.forEach(page => {
               <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa;">
                 ${imageTags}
               </div>
-              <div class="piece-copy" style="padding: 20px 0 15px;">
+              <div class="piece-copy" style="padding: 20px 0 10px;">
                 <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">${art.inventoryCode} • ${art.medium}</span>
                 <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">${art.title}</h3>
                 <div style="margin: 4px 0 6px;">
@@ -963,9 +1075,9 @@ pagesToCompile.forEach(page => {
                   <span style="font-size: 0.9rem; font-weight: 500; color: var(--muted); display: block; margin-top: 2px;">${art.price}</span>
                 </div>
                 <span class="status-tag ${statusClass}" style="margin-top: 8px;">${cardStatus}</span>
-                <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">Inquire about this artwork</span>
               </div>
             </a>
+            ${renderCardActions(art, cardStatus)}
           </article>`;
       });
       
@@ -1001,7 +1113,7 @@ pagesToCompile.forEach(page => {
               <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa;">
                 ${imageTags}
               </div>
-              <div class="piece-copy" style="padding: 20px 0 15px;">
+              <div class="piece-copy" style="padding: 20px 0 10px;">
                 <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">${art.inventoryCode} • ${art.medium}</span>
                 <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">${art.title}</h3>
                 <div style="margin: 4px 0 6px;">
@@ -1009,9 +1121,9 @@ pagesToCompile.forEach(page => {
                   <span style="font-size: 0.9rem; font-weight: 500; color: var(--muted); display: block; margin-top: 2px;">${art.price}</span>
                 </div>
                 <span class="status-tag ${statusClass}" style="margin-top: 8px;">${cardStatus}</span>
-                <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">Inquire about this artwork</span>
               </div>
             </a>
+            ${renderCardActions(art, cardStatus)}
           </article>`;
       });
       cardsHtml += '\n        </div>\n      </section>';
@@ -1065,6 +1177,11 @@ pagesToCompile.forEach(page => {
     content = content.replace(cardsRegex, `${cardsStart}\n${cardsHtml}\n${cardsEnd}`);
   }
   
+  // Ensure ecommerce.css is linked in page <head>
+  if (!content.includes('styles/ecommerce.css')) {
+    content = content.replace('</head>', '  <link rel="stylesheet" href="styles/ecommerce.css">\n</head>');
+  }
+
   // Write output page to root
   fs.writeFileSync(page.file, content, 'utf-8');
 });
@@ -1081,7 +1198,10 @@ const rootPages = [
   'engagements.html',
   'contact.html',
   'commission.html',
-  'faq.html'
+  'faq.html',
+  'cart.html',
+  'checkout.html',
+  'order-confirmation.html'
 ];
 
 let sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>

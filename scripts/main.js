@@ -18,6 +18,8 @@ import './gallery.js';
 import './forms.js';
 import './custom-size.js';
 import './artwork-purchasing.js';
+import './cart.js';
+import './checkout.js';
 
 /* ==========================================
    INITIALIZATION

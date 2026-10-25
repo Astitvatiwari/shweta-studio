@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-S7G0T169VN"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-S7G0T169VN');
+  </script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout | Shweta Studio</title>
+  <meta name="description" content="Secure acquisition checkout for original artworks, sculptures, and custom commissions by Shweta Studio.">
+  <link rel="canonical" href="https://shwetastudio.com/checkout.html">
+  <meta name="robots" content="noindex, follow">
+
+  <!-- Razorpay Standard Checkout SDK -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+  <!-- Fonts & Styles -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/layout.css">
+  <link rel="stylesheet" href="styles/collections.css">
+  <link rel="stylesheet" href="styles/ecommerce.css">
+  <link rel="stylesheet" href="styles/responsive.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="index.html" aria-label="SHWETA STUDIO home">
+        <img src="all work/logo/logo with name.png" alt="Shweta Studio Logo" loading="eager" class="header-logo">
+      </a>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+      <nav class="site-nav" id="site-nav" aria-label="Primary navigation">
+        <a href="index.html">Home</a>
+        <div class="nav-dropdown-wrapper">
+          <a href="works.html">Collections</a>
+          <div class="nav-dropdown">
+            <a href="sculptures.html">Sculptures</a>
+            <a href="paintings.html">Paintings</a>
+            <a href="jewellery.html">Jewellery &amp; Handmade Creations</a>
+          </div>
+        </div>
+        <a href="story.html">Story</a>
+        <a href="engagements.html">Public Engagements</a>
+        <a href="contact.html">Contact</a>
+      </nav>
+      <div class="header-tools">
+        <a class="tool-link" href="works.html">View Collections</a>
+        <a class="tool-link tool-link-filled" href="contact.html">Inquire</a>
+        <a class="tool-link-cart" href="cart.html" id="header-cart-btn" onclick="event.preventDefault(); window.toggleCartDrawer && window.toggleCartDrawer();" aria-label="Shopping Cart">
+          <svg class="cart-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <path d="M16 10a4 4 0 0 1-8 0"></path>
+          </svg>
+          <span class="cart-text">Bag</span>
+          <span class="cart-badge" id="cart-item-count">0</span>
+        </a>
+      </div>
+    </header>
+
+    <main class="page-stack" style="padding-top: 20px;">
+      <section class="page-intro">
+        <p class="eyebrow"><a href="cart.html" style="text-decoration: none; color: var(--clay);">&larr; Return to Shopping Bag</a></p>
+        <h1 style="font-family: 'Cormorant Garamond', serif; font-weight: 500; margin: 4px 0 8px;">Studio Checkout</h1>
+        <p style="color: var(--muted); font-size: 0.95rem; margin: 0;">Complete your acquisition details for insured transit and authenticity registration.</p>
+      </section>
+
+      <!-- Fast Checkout Notification Banner (if Buy Now used) -->
+      <div id="fast-checkout-banner" style="display: none; background: rgba(180, 95, 52, 0.08); border-left: 3px solid var(--clay); padding: 12px 16px; border-radius: 4px; font-size: 0.85rem; color: var(--clay-dark);">
+        ⚡ <strong>Fast Checkout:</strong> You are directly acquiring this specific piece. Your existing shopping bag items remain saved.
+      </div>
+
+      <div id="checkout-container">
+        <form id="checkout-form" class="checkout-grid">
+          <!-- Left Column: Customer & Delivery Information -->
+          <div>
+            <!-- Section 1: Collector Details -->
+            <div class="checkout-section">
+              <h3>1. Collector Contact Information</h3>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
+                <div>
+                  <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 5px;">Full Name *</label>
+                  <input type="text" name="name" required placeholder="Full legal name" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem;">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 5px;">Email Address *</label>
+                  <input type="email" name="email" required placeholder="collector@example.com" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem;">
+                </div>
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 5px;">Phone Number (for Courier &amp; Customs) *</label>
+                <input type="tel" name="phone" required placeholder="+91 / +1 / +44 ..." style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem;">
+              </div>
+            </div>
+
+            <!-- Section 2: Delivery Destination -->
+            <div class="checkout-section">
+              <h3>2. Insured Delivery Address</h3>
+              <div style="margin-bottom: 14px;">
+                <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 5px;">Destination Country *</label>
+                <select name="country" required style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem; background: #ffffff;">
+                  <option value="India" selected>India (Domestic Delivery Included &bull; INR ₹)</option>
+                  <option value="United States">United States (USD $)</option>
+                  <option value="United Kingdom">United Kingdom (USD $)</option>
+                  <option value="Canada">Canada (USD $)</option>
+                  <option value="Australia">Australia (USD $)</option>
+                  <option value="Germany">Germany (USD $)</option>
+                  <option value="France">France (USD $)</option>
+                  <option value="United Arab Emirates">United Arab Emirates (USD $)</option>
+                  <option value="Singapore">Singapore (USD $)</option>
+                  <option value="International">Other Worldwide Destination (USD $)</option>
+                </select>
+              </div>
+
+              <div style="margin-bottom: 14px;">
+                <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 5px;">Street Address *</label>
+                <input type="text" name="address" required placeholder="House/Flat number, building, street" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem;">
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                <div>
+                  <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 5px;">City *</label>
+                  <input type="text" name="city" required placeholder="City" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem;">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 5px;">State / Province *</label>
+                  <input type="text" name="state" required placeholder="State" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem;">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 5px;">PIN / Postal Code *</label>
+                  <input type="text" name="postalCode" required placeholder="Postal code" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem;">
+                </div>
+              </div>
+            </div>
+
+            <!-- Section 3: Payment Method -->
+            <div class="checkout-section">
+              <h3>3. Payment &amp; Acquisition Review</h3>
+
+              <div class="payment-method-box selected">
+                <input type="radio" name="paymentMethod" value="studio_standard" checked style="margin-top: 3px;">
+                <div>
+                  <strong style="display: block; font-size: 0.92rem; color: var(--charcoal); margin-bottom: 2px;">Studio Direct Acquisition &amp; Verification</strong>
+                  <p style="font-size: 0.8rem; color: var(--muted); margin: 0; line-height: 1.5;">
+                    Your acquisition is recorded directly with Shweta Studio. An official invoice and Certificate of Authenticity reference will be registered immediately. Payment is verified securely before packaging and dispatch.
+                  </p>
+                </div>
+              </div>
+
+              <div class="payment-method-box">
+                <input type="radio" name="paymentMethod" value="razorpay" style="margin-top: 3px;">
+                <div>
+                  <strong style="display: block; font-size: 0.92rem; color: var(--charcoal); margin-bottom: 2px;">Razorpay Gateway / Credit &amp; Debit Card / UPI</strong>
+                  <p style="font-size: 0.8rem; color: var(--muted); margin: 0; line-height: 1.5;">
+                    Instant online card, NetBanking, and UPI payment. (Available for live merchant credentials).
+                  </p>
+                </div>
+              </div>
+
+              <div id="checkout-status-message" class="form-status-message" style="margin-top: 12px;"></div>
+
+              <button type="submit" id="btn-submit-order" class="btn-checkout-drawer" style="width: 100%; padding: 14px; margin-top: 16px; font-size: 0.9rem;">
+                Complete Studio Acquisition
+              </button>
+            </div>
+          </div>
+
+          <!-- Right Column: Order Summary -->
+          <div>
+            <div class="checkout-order-summary">
+              <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--line); padding-bottom: 10px;">
+                <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.45rem; font-weight: 500; margin: 0; color: var(--charcoal);">
+                  Acquisition Order
+                </h3>
+                <span id="checkout-currency-badge" style="font-size: 0.72rem; font-weight: 600; color: var(--clay); background: rgba(180, 95, 52, 0.08); padding: 2px 8px; border-radius: 4px;">INR (₹)</span>
+              </div>
+
+              <!-- List of Items -->
+              <div id="checkout-items-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
+
+              <!-- Price Breakdown -->
+              <div class="checkout-price-row">
+                <span>Pieces Subtotal</span>
+                <strong id="checkout-subtotal">₹0</strong>
+              </div>
+
+              <div class="checkout-price-row">
+                <span>Packaging &amp; Transit</span>
+                <span style="color: var(--sage); font-weight: 500;">Included (Complimentary)</span>
+              </div>
+
+              <div class="checkout-price-row total">
+                <span>Total Payable</span>
+                <strong id="checkout-total">₹0</strong>
+              </div>
+
+              <p id="checkout-shipping-note" style="font-size: 0.76rem; color: var(--muted); margin: 0; line-height: 1.4;"></p>
+
+              <div style="background: rgba(92, 99, 88, 0.08); border-left: 3px solid var(--sage); padding: 10px 12px; font-size: 0.78rem; color: var(--sage); line-height: 1.5; border-radius: 4px;">
+                &check; <strong>Collector Safeguard:</strong> Unique 1/1 pieces are reserved atomically upon order initiation to prevent double allocation.
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-copyright-block">
+        <div style="margin-bottom: 12px;">
+          <img src="all work/logo/logo with name.png" alt="Shweta Studio Logo" loading="lazy" style="width: 160px; height: auto; display: block;">
+        </div>
+        <p>Artist: Shweta Jain Maheshwari</p>
+        <p style="font-size: 0.72rem; color: var(--muted); margin-top: 6px; line-height: 1.5; max-width: 500px;">
+          &copy; 2026 Shweta Studio. All artworks, photographs, text, and visual content are protected by copyright. Unauthorized reproduction or commercial use is prohibited.
+        </p>
+      </div>
+      <span>
+        <a href="commission.html" style="margin-right: 15px;">Commission</a>
+        <a href="faq.html" style="margin-right: 15px;">FAQ</a>
+        <a href="works.html">Collections</a>
+      </span>
+    </footer>
+  </div>
+
+  <script type="module" src="scripts/main.js"></script>
+</body>
+</html>
