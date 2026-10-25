@@ -17,6 +17,7 @@ import { initScrollReveal } from './animations.js';
 import './gallery.js';
 import './forms.js';
 import './custom-size.js';
+import './artwork-purchasing.js';
 
 /* ==========================================
    INITIALIZATION

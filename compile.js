@@ -1,7 +1,10 @@
-// compile.js - Node.js Static Site Generator compiler for Shweta Studio
 import fs from 'fs';
 import path from 'path';
 import artworks from './artworks.js';
+import { getInventory, calculatePreparationTime } from './data/inventory-store.js';
+
+// Read persistent authoritative inventory store (does not reset sold items upon rebuild)
+const inventoryStore = getInventory();
 
 const DETAIL_TEMPLATE_PATH = './pieces/detail_template.html';
 const OUTPUT_DIR = './pieces';
@@ -217,7 +220,9 @@ const requiredDetailTags = [
   '{{STATUS_CLASS}}', '{{BACK_LINK}}', '{{BACK_TEXT}}', 
   '{{THUMBNAIL_GALLERY}}', '{{RELATED_WORKS}}', '{{META_TITLE}}', 
   '{{META_DESCRIPTION}}', '{{SCHEMA_JSON}}', '{{SHIPPING_NOTICE}}', '{{ARTIST}}',
-  '{{FEATURED_BADGE}}', '{{ARTIST_INFO}}', '{{OG_IMAGE}}', '{{IMAGE_ALT}}'
+  '{{FEATURED_BADGE}}', '{{ARTIST_INFO}}', '{{OG_IMAGE}}', '{{IMAGE_ALT}}',
+  '{{ORIGINAL_PRICE_PRIMARY}}', '{{PREPARATION_TIME_DISPLAY}}', '{{PREPARATION_TIME_NOTICE}}',
+  '{{ORIG_WIDTH_NUM}}', '{{ORIG_HEIGHT_NUM}}'
 ];
 
 // Check all required tags in template before rendering
@@ -359,12 +364,24 @@ artworks.forEach(art => {
     backText = 'Jewellery &  Handmade Creations';
   }
 
-  let priceDisplay = '';
+  // Persistent authoritative inventory status check
+  const invItem = inventoryStore[art.inventoryCode] || {};
+  const currentStatus = invItem.status || art.availability;
+  const isSold = currentStatus === 'Sold';
+  const isReserved = currentStatus === 'Reserved';
+  const prepTime = calculatePreparationTime(art);
+
+  const origW = parseDimensionValue(art.dimensions?.width) || 12;
+  const origH = parseDimensionValue(art.dimensions?.height) || 12;
+
+  let primaryPrice = art.price || 'Available on Inquiry';
+  let pricingBoxesHtml = '';
+
   if (art.category === 'Sculptures') {
     if (art.price) {
       const usdPrice = calculateSculptureIntlUsdPrice(art.price);
-      priceDisplay = `<div style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px; margin-bottom: 12px;">
-            <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 500;">Pricing</span>
+      primaryPrice = `${art.price} (India) / ${usdPrice} (Worldwide)`;
+      pricingBoxesHtml = `
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
               <div style="background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px;">
                 <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 600; display: block; margin-bottom: 4px;">India</span>
@@ -374,18 +391,15 @@ artworks.forEach(art => {
                 <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 600; display: block; margin-bottom: 4px;">Worldwide</span>
                 <div style="font-size: 1.6rem; color: var(--clay); font-weight: 600; line-height: 1.2;">${usdPrice}</div>
               </div>
-            </div>
-          </div>`;
+            </div>`;
     } else {
-      priceDisplay = `<div style="display: flex; flex-direction: column; gap: 4px; margin-top: 15px; margin-bottom: 10px;">
-            <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 500;">Pricing</span>
-            <strong style="font-size: 1.8rem; color: var(--clay); font-weight: 500;">Price available upon request</strong>
-          </div>`;
+      primaryPrice = 'Price on Inquiry';
+      pricingBoxesHtml = `<strong style="font-size: 1.8rem; color: var(--clay); font-weight: 500;">Price available upon request</strong>`;
     }
   } else if (art.category === 'Paintings') {
-    let pricingBoxesHtml = '';
     if (INCLUDED_DELIVERY_SKUS.has(art.inventoryCode)) {
       const usdPrice = calculateIntlUsdPrice(art.price);
+      primaryPrice = `${art.price} (India) / ${usdPrice} (Worldwide)`;
       pricingBoxesHtml = `
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
               <div style="background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px;">
@@ -401,6 +415,7 @@ artworks.forEach(art => {
             </div>`;
     } else if (OLDER_PAINTING_SKUS.has(art.inventoryCode)) {
       const inrPrice = calculateDomesticInrPrice(art.price);
+      primaryPrice = `${inrPrice} (India) / ${art.price} (Worldwide)`;
       pricingBoxesHtml = `
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
               <div style="background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px;">
@@ -415,90 +430,97 @@ artworks.forEach(art => {
               </div>
             </div>`;
     } else {
+      primaryPrice = art.price;
       pricingBoxesHtml = `<strong style="font-size: 1.8rem; color: var(--clay); font-weight: 500;">${art.price}</strong>`;
     }
-
-    const origW = parseDimensionValue(art.dimensions?.width);
-    const origH = parseDimensionValue(art.dimensions?.height);
-    const origDimsDisplay = (origW && origH) ? `${origW} × ${origH} inches` : (art.dimensions?.display || 'Original Proportions');
-
-    priceDisplay = `
-          <div style="margin-top: 15px; margin-bottom: 12px;">
-            <!-- Selection Option: Original Artwork vs Customize Size -->
-            <div style="display: flex; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--line); padding-bottom: 10px;" role="tablist">
-              <button type="button" id="tab-original-size" onclick="selectPaintingSizeMode('original')" role="tab" aria-selected="true" style="padding: 8px 16px; border-radius: var(--radius); font-size: 0.84rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; border: 1px solid var(--clay); background: var(--clay); color: #ffffff;">
-                Original Artwork
-              </button>
-              <button type="button" id="tab-custom-size" onclick="selectPaintingSizeMode('custom')" role="tab" aria-selected="false" style="padding: 8px 16px; border-radius: var(--radius); font-size: 0.84rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; border: 1px solid var(--line); background: #ffffff; color: var(--charcoal);">
-                Customize Size
-              </button>
-            </div>
-
-            <!-- View 1: Original Artwork (Default) -->
-            <div id="view-original-size" role="tabpanel" style="display: block;">
-              <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
-                <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 500;">Pricing</span>
-                ${pricingBoxesHtml}
-              </div>
-              <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); margin-top: 10px;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: var(--sage);"></span>
-                  <strong style="font-size: 0.86rem; color: var(--charcoal); font-weight: 600;">Original artwork &bull; 1 available</strong>
-                </div>
-                <div style="font-size: 0.8rem; color: var(--muted); line-height: 1.4;">
-                  Dispatch within 15 days of order confirmation and payment verification.
-                </div>
-              </div>
-            </div>
-
-            <!-- View 2: Customize Size -->
-            <div id="view-custom-size" data-orig-width="${origW}" data-orig-height="${origH}" role="tabpanel" style="display: none; padding: 16px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
-              <div style="margin-bottom: 12px;">
-                <h4 style="font-family: 'Cormorant Garamond', serif; font-size: 1.35rem; font-weight: 600; margin: 0 0 4px; color: var(--charcoal);">Custom Size</h4>
-                <p style="font-size: 0.82rem; color: var(--muted); margin: 0; line-height: 1.4;">Maintain original artwork proportions (${origDimsDisplay})</p>
-              </div>
-
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                <div>
-                  <label for="custom-width" style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 6px;">Width (inches)</label>
-                  <input type="number" id="custom-width" value="${origW}" step="any" min="1" oninput="onCustomWidthChange(this.value)" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.9rem; background: #ffffff;">
-                </div>
-                <div>
-                  <label for="custom-height" style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 6px;">Height (inches)</label>
-                  <input type="number" id="custom-height" value="${origH}" step="any" min="1" oninput="onCustomHeightChange(this.value)" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.9rem; background: #ffffff;">
-                </div>
-              </div>
-
-              <div id="aspect-ratio-feedback" style="font-size: 0.8rem; margin-bottom: 14px; min-height: 20px;">
-                <span style="color: var(--sage); display: flex; align-items: center; gap: 4px;">✓ Proportions match original artwork (${origDimsDisplay})</span>
-              </div>
-
-              <div style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #ffffff; border: 1px solid var(--line); border-radius: 4px; margin-bottom: 16px;">
-                <span style="color: var(--clay); font-size: 0.95rem;">⏱</span>
-                <span style="font-size: 0.82rem; color: var(--charcoal); font-weight: 500;">Production time: Up to 2 months for production</span>
-              </div>
-
-              <button type="button" id="btn-request-custom-size" onclick="submitCustomSizeRequest()" style="width: 100%; padding: 12px 18px; background: var(--clay); color: #ffffff; border: none; border-radius: 4px; font-family: inherit; font-size: 0.86rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: background 0.2s ease;">
-                Request Custom Size
-              </button>
-            </div>
-          </div>`;
   } else if (art.category === 'Jewellery') {
     const inrPrice = calculateJewelleryInrPrice(art.price);
-    priceDisplay = `<div style="display: flex; flex-direction: column; gap: 4px; margin-top: 15px; margin-bottom: 10px;">
-            <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 500;">Pricing</span>
-            <div style="display: flex; flex-direction: column; gap: 2px;">
-              <strong style="font-size: 1.8rem; color: var(--clay); font-weight: 600; line-height: 1.2;">${inrPrice}</strong>
-              <span style="font-size: 1.15rem; color: var(--muted); font-weight: 500;">${art.price}</span>
-            </div>
+    primaryPrice = `${inrPrice} / ${art.price}`;
+    pricingBoxesHtml = `
+          <div style="display: flex; flex-direction: column; gap: 2px;">
+            <strong style="font-size: 1.8rem; color: var(--clay); font-weight: 600; line-height: 1.2;">${inrPrice}</strong>
+            <span style="font-size: 1.15rem; color: var(--muted); font-weight: 500;">${art.price}</span>
           </div>`;
   } else {
-    priceDisplay = `<div style="display: flex; flex-direction: column; gap: 4px; margin-top: 15px; margin-bottom: 10px;">
-            <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 500;">Pricing</span>
-            <strong style="font-size: 1.8rem; color: var(--clay); font-weight: 500;">${art.price}</strong>
-          </div>`;
+    primaryPrice = art.price;
+    pricingBoxesHtml = `<strong style="font-size: 1.8rem; color: var(--clay); font-weight: 500;">${art.price}</strong>`;
   }
-  const statusClass = 'status-' + art.availability.toLowerCase().replace(/\s+/g, '-');
+
+  // Two Separate Options Presentation Block (Section 3 & Section 8)
+  const originalStatusTagText = isSold ? 'Original Sold' : (isReserved ? 'Original Reserved' : 'Original Available &bull; 1/1 Unique Piece');
+  const originalButtonHtml = isSold
+    ? `<button type="button" class="button" id="btn-buy-original" disabled style="width: 100%; border-radius: 4px; font-weight: 600; cursor: not-allowed; letter-spacing: 0.06em; text-transform: uppercase; background: #f0f0f0; color: #888; border: 1px solid #ddd; font-size: 0.78rem;">Original Sold</button>`
+    : (isReserved
+      ? `<button type="button" class="button" id="btn-buy-original" disabled style="width: 100%; border-radius: 4px; font-weight: 600; cursor: not-allowed; letter-spacing: 0.06em; text-transform: uppercase; background: #f0f0f0; color: #888; border: 1px solid #ddd; font-size: 0.78rem;">Original Reserved</button>`
+      : `<button type="button" class="button button-primary" id="btn-buy-original" onclick="openOriginalPurchaseModal()" style="width: 100%; border-radius: 4px; font-weight: 600; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.78rem;">Buy Original</button>`);
+
+  const soldBannerHtml = `
+        <div id="sold-original-banner" class="sold-original-banner" style="${isSold ? 'display: grid;' : 'display: none;'}">
+          <strong style="color: var(--clay-dark); font-size: 0.95rem;">Original Artwork Sold</strong>
+          <p style="margin: 0; font-size: 0.86rem; color: var(--charcoal); line-height: 1.5;">The original artwork has been sold. You can still commission a newly created version inspired by this piece.</p>
+        </div>`;
+
+  const priceDisplay = `
+        <div style="margin-top: 15px; margin-bottom: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+            <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 500;">Pricing Overview</span>
+            ${pricingBoxesHtml}
+          </div>
+
+          ${soldBannerHtml}
+
+          <!-- Two Separate Options on Every Artwork Page (Option A & Option B) -->
+          <div class="purchase-options-wrapper">
+            <div class="purchase-options-grid">
+              <!-- Option A: Buy Original -->
+              <div class="option-card option-card-original">
+                <div>
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px;">
+                    <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; color: var(--clay);">Option A</span>
+                    <span id="original-status-badge" class="status-tag ${isSold ? 'status-sold' : (isReserved ? 'status-sold' : 'status-available')}" style="margin: 0; font-size: 0.68rem; padding: 2px 8px;">${originalStatusTagText}</span>
+                  </div>
+                  <h4 style="font-family: 'Cormorant Garamond', serif; font-size: 1.32rem; font-weight: 500; margin: 0 0 6px; color: var(--charcoal);">1-of-1 Physical Original</h4>
+                  <div style="font-size: 1.05rem; font-weight: 600; color: ${isSold ? 'var(--muted)' : 'var(--clay)'}; margin-bottom: 6px;">
+                    ${isSold ? `<span style="text-decoration: line-through; opacity: 0.6;">${primaryPrice}</span> <span style="font-size: 0.82rem; color: var(--clay); text-decoration: none; font-weight: 500; margin-left: 6px;">Sold</span>` : primaryPrice}
+                  </div>
+                  <p style="font-size: 0.78rem; color: var(--muted); line-height: 1.45; margin: 0;">
+                    ${isSold ? 'The authentic original physical piece has been sold to a private collection.' : `Authentic 1/1 physical original piece crafted by ${artistName}. Signed Certificate of Authenticity included.`}
+                  </p>
+                </div>
+                <div>
+                  ${originalButtonHtml}
+                </div>
+              </div>
+
+              <!-- Option B: Customize This Artwork -->
+              <div class="option-card option-card-custom">
+                <div>
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px;">
+                    <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; color: var(--sage);">Option B</span>
+                    <span class="status-tag status-available" style="margin: 0; font-size: 0.68rem; padding: 2px 8px; background: rgba(92, 99, 88, 0.12); color: var(--sage);">Made-to-Order</span>
+                  </div>
+                  <h4 style="font-family: 'Cormorant Garamond', serif; font-size: 1.32rem; font-weight: 500; margin: 0 0 6px; color: var(--charcoal);">Customize This Artwork</h4>
+                  <div style="font-size: 1.05rem; font-weight: 600; color: var(--clay); margin-bottom: 4px;">
+                    ${primaryPrice} <span style="font-size: 0.74rem; color: var(--muted); font-weight: 400;">(Standard Version)</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 5px; font-size: 0.76rem; color: var(--charcoal); margin-bottom: 6px;">
+                    <span style="color: var(--clay);">⏱</span>
+                    <span><strong>Preparation Time:</strong> ${prepTime.displayText}</span>
+                  </div>
+                  <p style="font-size: 0.78rem; color: var(--muted); line-height: 1.45; margin: 0;">
+                    Request a newly created, made-to-order version inspired by this artwork. Handcrafted individually with natural variations in materials and texture.
+                  </p>
+                </div>
+                <div>
+                  <button type="button" class="button button-secondary" id="btn-customize-artwork" onclick="openCustomizationModal()" style="width: 100%; border-radius: 4px; font-weight: 600; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; border-color: var(--clay); color: var(--clay); font-size: 0.78rem;">Customize This Artwork</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+
+  const statusClass = isSold ? 'status-sold' : (isReserved ? 'status-sold' : 'status-' + currentStatus.toLowerCase().replace(/\s+/g, '-'));
+  const displayStatus = isSold ? 'Sold' : currentStatus;
 
   const dimsText = art.dimensions?.display || 'Available on Inquiry';
   const weightText = 'Available on Inquiry';
@@ -670,7 +692,7 @@ artworks.forEach(art => {
     .replaceAll('{{PRICE_DISPLAY}}', priceDisplay)
     .replaceAll('{{DESCRIPTION}}', art.description)
     .replaceAll('{{MAIN_IMAGE}}', mainImgMedium)
-    .replaceAll('{{STATUS}}', art.availability)
+    .replaceAll('{{STATUS}}', displayStatus)
     .replaceAll('{{STATUS_CLASS}}', statusClass)
     .replaceAll('{{BACK_LINK}}', backLink)
     .replaceAll('{{SHIPPING_NOTICE}}', shippingNoticeText)
@@ -684,7 +706,12 @@ artworks.forEach(art => {
     .replaceAll('{{META_DESCRIPTION}}', escapeAttr(metaDesc))
     .replaceAll('{{OG_IMAGE}}', ogImage)
     .replaceAll('{{IMAGE_ALT}}', escapeAttr(imageAlt))
-    .replaceAll('{{SCHEMA_JSON}}', JSON.stringify(schemaObj, null, 2));
+    .replaceAll('{{SCHEMA_JSON}}', JSON.stringify(schemaObj, null, 2))
+    .replaceAll('{{ORIGINAL_PRICE_PRIMARY}}', escapeAttr(primaryPrice))
+    .replaceAll('{{PREPARATION_TIME_DISPLAY}}', escapeAttr(prepTime.displayText))
+    .replaceAll('{{PREPARATION_TIME_NOTICE}}', escapeAttr(prepTime.fullNotice))
+    .replaceAll('{{ORIG_WIDTH_NUM}}', String(origW))
+    .replaceAll('{{ORIG_HEIGHT_NUM}}', String(origH));
 
   if (art.slug === 'sharabha-the-cosmic-subduer-of-narasimha') {
     const encodedMedium = encodeURI(mainImgMedium);
@@ -783,7 +810,10 @@ pagesToCompile.forEach(page => {
         const imgMedium = getWebpPath(primarySrc, 'medium');
         const imgAlt = (art.cardImage && art.images[0] !== art.cardImage) ? getWebpPath(art.images[0], 'medium') : (art.images[1] ? getWebpPath(art.images[1], 'medium') : imgMedium);
         const imgTert = art.images[3] ? getWebpPath(art.images[3], 'medium') : (art.images[2] ? getWebpPath(art.images[2], 'medium') : imgMedium);
-        const statusClass = 'status-' + art.availability.toLowerCase().replace(/\s+/g, '-');
+        
+        const cardInv = inventoryStore[art.inventoryCode] || {};
+        const cardStatus = cardInv.status || art.availability;
+        const statusClass = 'status-' + cardStatus.toLowerCase().replace(/\s+/g, '-');
         const hasGallery = art.images.length > 1 ? 'has-gallery' : '';
         
         let imageTags = `<img class="image-primary" src="${imgMedium}" alt="${art.title} — original ${art.medium.toLowerCase()} by ${art.artist || 'Shweta Jain Maheshwari'}" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">`;
@@ -822,7 +852,7 @@ pagesToCompile.forEach(page => {
             <div class="piece-copy" style="padding: 20px 0 15px;">
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">${art.inventoryCode} • ${art.medium}${artistBadge}</span>
               <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">${art.title}</h3>${priceHtml}
-              <span class="status-tag ${statusClass}" style="margin-top: 8px;">${art.availability}</span>
+              <span class="status-tag ${statusClass}" style="margin-top: 8px;">${cardStatus}</span>
               <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">View Details</span>
             </div>
           </a>
@@ -838,7 +868,9 @@ pagesToCompile.forEach(page => {
       ];
       sortedPaintings.forEach(art => {
         const imgMedium = getWebpPath(art.images[0], 'medium');
-        const statusClass = 'status-' + art.availability.toLowerCase().replace(/\s+/g, '-');
+        const cardInv = inventoryStore[art.inventoryCode] || {};
+        const cardStatus = cardInv.status || art.availability;
+        const statusClass = 'status-' + cardStatus.toLowerCase().replace(/\s+/g, '-');
         
         let priceHtml = '';
         if (INCLUDED_DELIVERY_SKUS.has(art.inventoryCode)) {
@@ -885,7 +917,7 @@ pagesToCompile.forEach(page => {
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">${art.inventoryCode} • ${art.medium}</span>
               <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">${art.title}</h3>
               ${priceHtml}
-              <span class="status-tag ${statusClass}" style="margin-top: 8px;">${art.availability}</span>
+              <span class="status-tag ${statusClass}" style="margin-top: 8px;">${cardStatus}</span>
               <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">Request Availability</span>
             </div>
           </a>
@@ -903,7 +935,9 @@ pagesToCompile.forEach(page => {
         const imgMedium = getWebpPath(art.images[0], 'medium');
         const imgAlt = art.images[1] ? getWebpPath(art.images[1], 'medium') : imgMedium;
         const imgTert = art.images[2] ? getWebpPath(art.images[2], 'medium') : imgMedium;
-        const statusClass = 'status-' + art.availability.toLowerCase().replace(/\s+/g, '-');
+        const cardInv = inventoryStore[art.inventoryCode] || {};
+        const cardStatus = cardInv.status || art.availability;
+        const statusClass = 'status-' + cardStatus.toLowerCase().replace(/\s+/g, '-');
         const hasGallery = art.images.length > 1 ? 'has-gallery' : '';
         const galleryClass = art.images.length === 2 ? 'has-gallery has-2-images' : hasGallery;
         
@@ -928,7 +962,7 @@ pagesToCompile.forEach(page => {
                   <strong style="font-size: 1.15rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2;">${inrPrice}</strong>
                   <span style="font-size: 0.9rem; font-weight: 500; color: var(--muted); display: block; margin-top: 2px;">${art.price}</span>
                 </div>
-                <span class="status-tag ${statusClass}" style="margin-top: 8px;">${art.availability}</span>
+                <span class="status-tag ${statusClass}" style="margin-top: 8px;">${cardStatus}</span>
                 <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">Inquire about this artwork</span>
               </div>
             </a>
@@ -947,7 +981,9 @@ pagesToCompile.forEach(page => {
         const imgMedium = getWebpPath(art.images[0], 'medium');
         const imgAlt = art.images[1] ? getWebpPath(art.images[1], 'medium') : imgMedium;
         const imgTert = art.images[2] ? getWebpPath(art.images[2], 'medium') : imgMedium;
-        const statusClass = 'status-' + art.availability.toLowerCase().replace(/\s+/g, '-');
+        const cardInv = inventoryStore[art.inventoryCode] || {};
+        const cardStatus = cardInv.status || art.availability;
+        const statusClass = 'status-' + cardStatus.toLowerCase().replace(/\s+/g, '-');
         const hasGallery = art.images.length > 1 ? 'has-gallery' : '';
         const galleryClass = art.images.length === 2 ? 'has-gallery has-2-images' : hasGallery;
         
@@ -972,7 +1008,7 @@ pagesToCompile.forEach(page => {
                   <strong style="font-size: 1.15rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2;">${inrPrice}</strong>
                   <span style="font-size: 0.9rem; font-weight: 500; color: var(--muted); display: block; margin-top: 2px;">${art.price}</span>
                 </div>
-                <span class="status-tag ${statusClass}" style="margin-top: 8px;">${art.availability}</span>
+                <span class="status-tag ${statusClass}" style="margin-top: 8px;">${cardStatus}</span>
                 <span class="button button-secondary" style="margin-top: 15px; width: fit-content; font-size: 0.76rem; padding: 6px 16px; border-radius: 4px;">Inquire about this artwork</span>
               </div>
             </a>

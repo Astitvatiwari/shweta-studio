@@ -1,7 +1,9 @@
 {
   "type": "module",
   "scripts": {
-    "build": "node compile.js"
+    "build": "node compile.js",
+    "start": "node server.js",
+    "test": "node tests/verify-inventory-system.js"
   },
   "dependencies": {
     "playwright": "^1.61.1"

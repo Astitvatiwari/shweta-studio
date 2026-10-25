@@ -52,3 +52,117 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 30px;
 }
+
+/* ==========================================
+   ONE-OF-ONE & CUSTOMIZATION OPTIONS
+========================================== */
+.purchase-options-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 15px;
+  margin-bottom: 12px;
+}
+
+.purchase-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 768px) {
+  .purchase-options-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.option-card {
+  background: #fafafa;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.option-card:hover {
+  border-color: var(--line-strong);
+}
+
+.option-card-original {
+  border-left: 3px solid var(--clay);
+}
+
+.option-card-custom {
+  border-left: 3px solid var(--sage);
+}
+
+.sold-original-banner {
+  background: rgba(180, 95, 52, 0.06);
+  border: 1px solid var(--clay);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 12px 0;
+  display: grid;
+  gap: 4px;
+}
+
+/* ==========================================
+   STUDIO MODAL DIALOGS
+========================================== */
+.studio-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(17, 17, 17, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.studio-modal-content {
+  background: #ffffff;
+  border-radius: var(--radius);
+  max-width: 580px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 28px 24px;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+  position: relative;
+  box-sizing: border-box;
+}
+
+.studio-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+}
+
+.studio-modal-close {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 4px;
+  transition: color 0.2s;
+}
+
+.studio-modal-close:hover {
+  color: var(--charcoal);
+}
+

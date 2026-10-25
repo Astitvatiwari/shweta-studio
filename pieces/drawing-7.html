@@ -189,22 +189,10 @@
 
           <!-- Price Section -->
           
-          <div style="margin-top: 15px; margin-bottom: 12px;">
-            <!-- Selection Option: Original Artwork vs Customize Size -->
-            <div style="display: flex; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--line); padding-bottom: 10px;" role="tablist">
-              <button type="button" id="tab-original-size" onclick="selectPaintingSizeMode('original')" role="tab" aria-selected="true" style="padding: 8px 16px; border-radius: var(--radius); font-size: 0.84rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; border: 1px solid var(--clay); background: var(--clay); color: #ffffff;">
-                Original Artwork
-              </button>
-              <button type="button" id="tab-custom-size" onclick="selectPaintingSizeMode('custom')" role="tab" aria-selected="false" style="padding: 8px 16px; border-radius: var(--radius); font-size: 0.84rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; border: 1px solid var(--line); background: #ffffff; color: var(--charcoal);">
-                Customize Size
-              </button>
-            </div>
-
-            <!-- View 1: Original Artwork (Default) -->
-            <div id="view-original-size" role="tabpanel" style="display: block;">
-              <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px;">
-                <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 500;">Pricing</span>
-                
+        <div style="margin-top: 15px; margin-bottom: 12px;">
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+            <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 500;">Pricing Overview</span>
+            
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
               <div style="background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px;">
                 <span style="font-size: 0.74rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; font-weight: 600; display: block; margin-bottom: 4px;">India</span>
@@ -217,50 +205,63 @@
                 <span style="font-size: 0.78rem; color: var(--sage); font-weight: 500; display: block; margin-top: 5px;">International delivery included</span>
               </div>
             </div>
-              </div>
-              <div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); margin-top: 10px;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: var(--sage);"></span>
-                  <strong style="font-size: 0.86rem; color: var(--charcoal); font-weight: 600;">Original artwork &bull; 1 available</strong>
-                </div>
-                <div style="font-size: 0.8rem; color: var(--muted); line-height: 1.4;">
-                  Dispatch within 15 days of order confirmation and payment verification.
-                </div>
-              </div>
-            </div>
+          </div>
 
-            <!-- View 2: Customize Size -->
-            <div id="view-custom-size" data-orig-width="16" data-orig-height="20" role="tabpanel" style="display: none; padding: 16px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
-              <div style="margin-bottom: 12px;">
-                <h4 style="font-family: 'Cormorant Garamond', serif; font-size: 1.35rem; font-weight: 600; margin: 0 0 4px; color: var(--charcoal);">Custom Size</h4>
-                <p style="font-size: 0.82rem; color: var(--muted); margin: 0; line-height: 1.4;">Maintain original artwork proportions (16 × 20 inches)</p>
-              </div>
+          
+        <div id="sold-original-banner" class="sold-original-banner" style="display: none;">
+          <strong style="color: var(--clay-dark); font-size: 0.95rem;">Original Artwork Sold</strong>
+          <p style="margin: 0; font-size: 0.86rem; color: var(--charcoal); line-height: 1.5;">The original artwork has been sold. You can still commission a newly created version inspired by this piece.</p>
+        </div>
 
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <!-- Two Separate Options on Every Artwork Page (Option A & Option B) -->
+          <div class="purchase-options-wrapper">
+            <div class="purchase-options-grid">
+              <!-- Option A: Buy Original -->
+              <div class="option-card option-card-original">
                 <div>
-                  <label for="custom-width" style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 6px;">Width (inches)</label>
-                  <input type="number" id="custom-width" value="16" step="any" min="1" oninput="onCustomWidthChange(this.value)" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.9rem; background: #ffffff;">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px;">
+                    <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; color: var(--clay);">Option A</span>
+                    <span id="original-status-badge" class="status-tag status-available" style="margin: 0; font-size: 0.68rem; padding: 2px 8px;">Original Available &bull; 1/1 Unique Piece</span>
+                  </div>
+                  <h4 style="font-family: 'Cormorant Garamond', serif; font-size: 1.32rem; font-weight: 500; margin: 0 0 6px; color: var(--charcoal);">1-of-1 Physical Original</h4>
+                  <div style="font-size: 1.05rem; font-weight: 600; color: var(--clay); margin-bottom: 6px;">
+                    ₹6,300 (India) / $105 (Worldwide)
+                  </div>
+                  <p style="font-size: 0.78rem; color: var(--muted); line-height: 1.45; margin: 0;">
+                    Authentic 1/1 physical original piece crafted by Shweta Jain Maheshwari. Signed Certificate of Authenticity included.
+                  </p>
                 </div>
                 <div>
-                  <label for="custom-height" style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 6px;">Height (inches)</label>
-                  <input type="number" id="custom-height" value="20" step="any" min="1" oninput="onCustomHeightChange(this.value)" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.9rem; background: #ffffff;">
+                  <button type="button" class="button button-primary" id="btn-buy-original" onclick="openOriginalPurchaseModal()" style="width: 100%; border-radius: 4px; font-weight: 600; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; font-size: 0.78rem;">Buy Original</button>
                 </div>
               </div>
 
-              <div id="aspect-ratio-feedback" style="font-size: 0.8rem; margin-bottom: 14px; min-height: 20px;">
-                <span style="color: var(--sage); display: flex; align-items: center; gap: 4px;">✓ Proportions match original artwork (16 × 20 inches)</span>
+              <!-- Option B: Customize This Artwork -->
+              <div class="option-card option-card-custom">
+                <div>
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px;">
+                    <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; color: var(--sage);">Option B</span>
+                    <span class="status-tag status-available" style="margin: 0; font-size: 0.68rem; padding: 2px 8px; background: rgba(92, 99, 88, 0.12); color: var(--sage);">Made-to-Order</span>
+                  </div>
+                  <h4 style="font-family: 'Cormorant Garamond', serif; font-size: 1.32rem; font-weight: 500; margin: 0 0 6px; color: var(--charcoal);">Customize This Artwork</h4>
+                  <div style="font-size: 1.05rem; font-weight: 600; color: var(--clay); margin-bottom: 4px;">
+                    ₹6,300 (India) / $105 (Worldwide) <span style="font-size: 0.74rem; color: var(--muted); font-weight: 400;">(Standard Version)</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 5px; font-size: 0.76rem; color: var(--charcoal); margin-bottom: 6px;">
+                    <span style="color: var(--clay);">⏱</span>
+                    <span><strong>Preparation Time:</strong> 15 days of preparation</span>
+                  </div>
+                  <p style="font-size: 0.78rem; color: var(--muted); line-height: 1.45; margin: 0;">
+                    Request a newly created, made-to-order version inspired by this artwork. Handcrafted individually with natural variations in materials and texture.
+                  </p>
+                </div>
+                <div>
+                  <button type="button" class="button button-secondary" id="btn-customize-artwork" onclick="openCustomizationModal()" style="width: 100%; border-radius: 4px; font-weight: 600; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; border-color: var(--clay); color: var(--clay); font-size: 0.78rem;">Customize This Artwork</button>
+                </div>
               </div>
-
-              <div style="display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #ffffff; border: 1px solid var(--line); border-radius: 4px; margin-bottom: 16px;">
-                <span style="color: var(--clay); font-size: 0.95rem;">⏱</span>
-                <span style="font-size: 0.82rem; color: var(--charcoal); font-weight: 500;">Production time: Up to 2 months for production</span>
-              </div>
-
-              <button type="button" id="btn-request-custom-size" onclick="submitCustomSizeRequest()" style="width: 100%; padding: 12px 18px; background: var(--clay); color: #ffffff; border: none; border-radius: 4px; font-family: inherit; font-size: 0.86rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: background 0.2s ease;">
-                Request Custom Size
-              </button>
             </div>
           </div>
+        </div>
 
           
 
@@ -418,13 +419,250 @@
         <a href="../works.html">Collections</a>
       </span>
     </footer>
+
+    <!-- Option A: Original Purchase Modal -->
+    <div id="original-purchase-modal" class="studio-modal-backdrop" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="original-purchase-title">
+      <div class="studio-modal-content">
+        <div class="studio-modal-header">
+          <div>
+            <span style="color: var(--clay); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 2px;">Option A &bull; 1-of-1 Physical Original</span>
+            <h3 id="original-purchase-title" style="font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; margin: 0; color: var(--charcoal);">Purchase Original Artwork</h3>
+          </div>
+          <button type="button" class="studio-modal-close" onclick="closeOriginalPurchaseModal()" aria-label="Close dialog">&times;</button>
+        </div>
+
+        <div id="original-purchase-body">
+          <div class="modal-artwork-summary" style="display: flex; gap: 16px; padding: 14px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 16px; align-items: center;">
+            <img src="../all work/painting/drawing 7 $105_medium.webp" alt="Flamingo Grace" style="width: 70px; height: 70px; object-fit: contain; border-radius: 4px; border: 1px solid var(--line); background: #ffffff;">
+            <div style="flex: 1;">
+              <h4 style="font-size: 1.05rem; margin: 0 0 4px; color: var(--charcoal);">Flamingo Grace</h4>
+              <span style="font-size: 0.76rem; color: var(--muted); display: block;">Inventory Code: <strong>SS-PT-008</strong> &bull; Pencil Sketch</span>
+              <span style="font-size: 0.76rem; color: var(--muted); display: block;">Dimensions: Available on Inquiry</span>
+            </div>
+            <div style="text-align: right;">
+              <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); display: block;">Listed Price</span>
+              <strong style="font-size: 1.25rem; color: var(--clay);">₹6,300 (India) / $105 (Worldwide)</strong>
+            </div>
+          </div>
+
+          <div style="background: rgba(92, 99, 88, 0.08); border-left: 3px solid var(--sage); padding: 10px 14px; margin-bottom: 16px; font-size: 0.82rem; color: var(--sage); line-height: 1.5;">
+            ✓ <strong>Authenticity Guarantee:</strong> Handcrafted unique 1/1 original by Shweta Jain Maheshwari. Accompanied by a signed Certificate of Authenticity and protective packaging.
+          </div>
+
+          <form id="original-purchase-form" onsubmit="submitOriginalPurchase(event)" style="display: grid; gap: 12px;">
+            <input type="hidden" name="inventoryCode" value="SS-PT-008">
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 4px;">Full Name *</label>
+                <input type="text" name="customerName" required placeholder="Collector Name" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 4px;">Email Address *</label>
+                <input type="email" name="customerEmail" required placeholder="name@example.com" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem;">
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 4px;">Phone Number *</label>
+                <input type="tel" name="customerPhone" required placeholder="+91 / +1 ..." style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 4px;">Destination Country *</label>
+                <input type="text" name="customerCountry" required placeholder="Country of Delivery" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem;">
+              </div>
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 4px;">Delivery Address *</label>
+              <textarea name="customerAddress" required rows="2" placeholder="Full postal delivery address" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem; resize: vertical;"></textarea>
+            </div>
+
+            <div style="border-top: 1px solid var(--line); padding-top: 12px; margin-top: 2px;">
+              <div style="background: rgba(180, 95, 52, 0.06); border: 1px solid rgba(180, 95, 52, 0.2); border-radius: 4px; padding: 10px 12px; margin-bottom: 10px; font-size: 0.78rem; color: var(--clay-dark); line-height: 1.5;">
+                <strong>Studio Demonstration Checkout:</strong> This storefront checkout is currently in demonstration mode. Submitting records your acquisition request; Shweta Studio will review specifications and confirm payment verification before dispatch.
+              </div>
+              <input type="hidden" name="paymentOption" value="verified">
+            </div>
+
+            <div id="purchase-status-message" class="form-status-message"></div>
+
+            <button type="submit" id="btn-submit-purchase" class="button button-primary" style="width: 100%; border-radius: 4px; cursor: pointer; font-size: 0.86rem; font-weight: 600; padding: 12px; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px;">
+              Confirm Purchase of Original (₹6,300 (India) / $105 (Worldwide))
+            </button>
+          </form>
+        </div>
+
+        <div id="original-purchase-success" style="display: none; padding: 15px 0;">
+          <div style="text-align: center; margin-bottom: 16px;">
+            <div style="display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px; border-radius: 50%; background: rgba(92, 99, 88, 0.15); color: var(--sage); font-size: 1.4rem; margin-bottom: 10px;">✓</div>
+            <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.9rem; margin: 0 0 4px; color: var(--charcoal);">Purchase Confirmed!</h3>
+            <p style="color: var(--muted); font-size: 0.86rem; margin: 0;">You have successfully acquired this authentic 1-of-1 physical original.</p>
+          </div>
+
+          <div style="background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 8px; font-size: 0.86rem; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">Order Reference</span><strong id="receipt-order-id" style="color: var(--clay); font-family: monospace;"></strong></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">Artwork</span><strong id="receipt-title" style="color: var(--charcoal);"></strong></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">Inventory Code</span><strong id="receipt-code" style="color: var(--charcoal);"></strong></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">Order Type</span><strong style="color: var(--charcoal);">1-of-1 Physical Original Artwork</strong></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">Amount</span><strong id="receipt-price" style="color: var(--charcoal);"></strong></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">Collector Name</span><strong id="receipt-customer" style="color: var(--charcoal);"></strong></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">Dispatch Timeline</span><strong style="color: var(--sage);">Within 15 days of confirmation</strong></div>
+          </div>
+
+          <button type="button" class="button button-primary" onclick="closeOriginalPurchaseModal()" style="width: 100%; border-radius: 4px; cursor: pointer; font-size: 0.82rem;">
+            Close Receipt
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Option B: Customization Modal -->
+    <div id="customization-modal" class="studio-modal-backdrop" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="customization-title">
+      <div class="studio-modal-content">
+        <div class="studio-modal-header">
+          <div>
+            <span style="color: var(--clay); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 2px;">Option B &bull; Made-to-Order Customization</span>
+            <h3 id="customization-title" style="font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; margin: 0; color: var(--charcoal);">Customize This Artwork</h3>
+          </div>
+          <button type="button" class="studio-modal-close" onclick="closeCustomizationModal()" aria-label="Close dialog">&times;</button>
+        </div>
+
+        <div id="customization-body">
+          <div class="modal-artwork-summary" style="display: flex; gap: 16px; padding: 14px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 14px; align-items: center;">
+            <img src="../all work/painting/drawing 7 $105_medium.webp" alt="Flamingo Grace" style="width: 70px; height: 70px; object-fit: contain; border-radius: 4px; border: 1px solid var(--line); background: #ffffff;">
+            <div style="flex: 1;">
+              <h4 style="font-size: 1.05rem; margin: 0 0 4px; color: var(--charcoal);">Flamingo Grace</h4>
+              <span style="font-size: 0.76rem; color: var(--muted); display: block;">Inventory Code: <strong>SS-PT-008</strong> &bull; Pencil Sketch</span>
+              <span style="font-size: 0.76rem; color: var(--muted); display: block;">Original Proportions: Available on Inquiry</span>
+            </div>
+            <div style="text-align: right;">
+              <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); display: block;">Standard Price</span>
+              <strong style="font-size: 1.25rem; color: var(--clay);">₹6,300 (India) / $105 (Worldwide)</strong>
+            </div>
+          </div>
+
+          <div style="background: rgba(180, 95, 52, 0.05); border: 1px solid rgba(180, 95, 52, 0.2); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 14px; display: grid; gap: 5px;">
+            <div style="display: flex; align-items: center; gap: 6px; font-size: 0.84rem; color: var(--clay-dark); font-weight: 600;">
+              <span>⏱</span>
+              <span>Applicable Preparation Time: 15 days of preparation</span>
+            </div>
+            <p style="margin: 0; font-size: 0.78rem; color: var(--muted); line-height: 1.45;">
+              15 days of preparation. Preparation time is the time needed to handcraft the artwork in the studio, not a guaranteed delivery date. Shipping and transit time are additional and governed by the studio shipping policy.
+            </p>
+            <p style="margin: 0; font-size: 0.78rem; color: var(--sage); line-height: 1.45; font-style: italic;">
+              * You are requesting a newly created, made-to-order version inspired by this artwork. It is not the original physical piece, and finished works contain natural handcrafted variations in texture, surface, and appearance.
+            </p>
+          </div>
+
+          <form id="customization-form" onsubmit="submitCustomizationRequest(event)" style="display: grid; gap: 12px;">
+            <input type="hidden" name="inventoryCode" value="SS-PT-008">
+
+            <div>
+              <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 6px;">Commission Version</label>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; background: #ffffff;">
+                  <input type="radio" name="customMode" value="standard" checked onchange="toggleCustomFields(this.value)">
+                  <span style="font-size: 0.82rem;"><strong>Standard Recreation</strong><br><small style="color: var(--muted);">Original scale &bull; Listed price</small></span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; background: #ffffff;">
+                  <input type="radio" name="customMode" value="custom" onchange="toggleCustomFields(this.value)">
+                  <span style="font-size: 0.82rem;"><strong>Custom Scale / Design</strong><br><small style="color: var(--clay);">Requires separate quotation</small></span>
+                </label>
+              </div>
+            </div>
+
+            <div id="dimensions-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 4px;">Requested Width (inches)</label>
+                <input type="number" id="custom-req-width" name="requestedWidth" value="16" step="any" min="1" oninput="onCustomReqDimChange()" style="width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 4px;">Requested Height (inches)</label>
+                <input type="number" id="custom-req-height" name="requestedHeight" value="20" step="any" min="1" oninput="onCustomReqDimChange()" style="width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem;">
+              </div>
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 4px;">Desired Modifications / Specific Details</label>
+              <textarea id="custom-modifications" name="modifications" rows="2" placeholder="Specify any desired variations (e.g. framing, specific color palette, display setting). For standard recreation, leave empty." style="width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem; resize: vertical;"></textarea>
+            </div>
+
+            <div id="custom-quotation-box" style="display: none; background: #fffbf7; border: 1px solid var(--clay); border-radius: 4px; padding: 10px 12px; font-size: 0.8rem; color: var(--charcoal); line-height: 1.45;">
+              <strong style="color: var(--clay-dark); display: block; margin-bottom: 2px;">Separate Quotation Required:</strong>
+              Significant design modifications, altered dimensions, or additional materials require separate studio quotation and approval. You will <strong>not</strong> be charged the standard price; our studio will provide a custom quotation for approval before proceeding.
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 4px;">Full Name *</label>
+                <input type="text" name="customerName" required placeholder="Collector Name" style="width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 4px;">Email Address *</label>
+                <input type="email" name="customerEmail" required placeholder="name@example.com" style="width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem;">
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 4px;">Phone Number *</label>
+                <input type="tel" name="customerPhone" required placeholder="+91 / +1 ..." style="width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem;">
+              </div>
+              <div>
+                <label style="display: block; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 4px;">Destination Country *</label>
+                <input type="text" name="customerCountry" required placeholder="Country of Delivery" style="width: 100%; box-sizing: border-box; padding: 9px 12px; border: 1px solid var(--line); border-radius: 4px; font-family: inherit; font-size: 0.86rem;">
+              </div>
+            </div>
+
+            <div id="customization-status-message" class="form-status-message"></div>
+
+            <button type="submit" id="btn-submit-customization" class="button button-primary" style="width: 100%; border-radius: 4px; cursor: pointer; font-size: 0.86rem; font-weight: 600; padding: 12px; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px;">
+              Submit Customization Request
+            </button>
+          </form>
+        </div>
+
+        <div id="customization-success" style="display: none; padding: 15px 0;">
+          <div style="text-align: center; margin-bottom: 16px;">
+            <div style="display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px; border-radius: 50%; background: rgba(180, 95, 52, 0.15); color: var(--clay); font-size: 1.4rem; margin-bottom: 10px;">✓</div>
+            <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.9rem; margin: 0 0 4px; color: var(--charcoal);">Commission Request Confirmed!</h3>
+            <p id="custom-success-subtitle" style="color: var(--muted); font-size: 0.86rem; margin: 0;"></p>
+          </div>
+
+          <div style="background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: grid; gap: 8px; font-size: 0.86rem; margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">Commission ID</span><strong id="custom-receipt-id" style="color: var(--clay); font-family: monospace;"></strong></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">Artwork Reference</span><strong id="custom-receipt-title" style="color: var(--charcoal);"></strong></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">Order Type</span><strong style="color: var(--charcoal);">Made-to-Order Custom Commission</strong></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">Dimensions</span><strong id="custom-receipt-dimensions" style="color: var(--charcoal);"></strong></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">Pricing / Quotation</span><strong id="custom-receipt-price" style="color: var(--charcoal);"></strong></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">Preparation Time</span><strong id="custom-receipt-prep" style="color: var(--sage);"></strong></div>
+            <div style="display: flex; justify-content: space-between;"><span style="color: var(--muted);">Status</span><strong id="custom-receipt-status" style="color: var(--clay);"></strong></div>
+          </div>
+
+          <button type="button" class="button button-primary" onclick="closeCustomizationModal()" style="width: 100%; border-radius: 4px; cursor: pointer; font-size: 0.82rem;">
+            Close Receipt
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script type="text/javascript">
     window.artworkConfig = {
       title: "Flamingo Grace",
       category: "Paintings",
-      inventoryCode: "SS-PT-008"
+      inventoryCode: "SS-PT-008",
+      slug: "drawing-7",
+      pricePrimary: "₹6,300 (India) / $105 (Worldwide)",
+      status: "Available",
+      preparationTime: "15 days of preparation",
+      dimensions: {
+        display: "Available on Inquiry",
+        widthNum: 16,
+        heightNum: 20
+      }
     };
   </script>
   <script type="module" src="../scripts/main.js"></script>
