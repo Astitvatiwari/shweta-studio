@@ -8,8 +8,8 @@
 import { getCart, clearCart, showToast } from './cart.js';
 
 const API_BASE = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-  ? (window.location.origin.includes(':') ? window.location.origin : 'http://localhost:3000')
-  : '';
+  ? (window.location.port === '3000' ? '' : `${window.location.protocol}//${window.location.hostname}:3000`)
+  : (typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://localhost:3000' : '');
 
 let checkoutItems = [];
 let isDirectBuyNow = false;
@@ -68,6 +68,26 @@ async function loadDirectBuyNowItem(code, type) {
     }
 
     const art = data.item;
+
+    if (type === 'original') {
+      if (art.status === 'Sold' || art.originalQuantity <= 0) {
+        renderEmptyCheckout(`"${art.title}" has already been sold. You may commission a newly crafted version.`);
+        return;
+      }
+      if (art.status === 'Reserved') {
+        const isHold = art.reservationType === 'checkout_hold';
+        const msg = isHold
+          ? `"${art.title}" is temporarily reserved in another collector's checkout. Please check back shortly.`
+          : `"${art.title}" is currently reserved. Direct online checkout is unavailable.`;
+        renderEmptyCheckout(msg);
+        return;
+      }
+      if (art.status === 'Available on Inquiry' || !art.price) {
+        renderEmptyCheckout(`"${art.title}" is available on studio inquiry only. Direct online purchase is not permitted.`);
+        return;
+      }
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const requestedQty = Math.max(1, parseInt(urlParams.get('quantity') || '1', 10));
     const isOriginal = type === 'original';

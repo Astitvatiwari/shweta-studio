@@ -133,14 +133,22 @@ export function getAuthoritativePrice(art, country = 'India') {
  */
 export function sanitizeStorefrontItem(item) {
   if (!item) return null;
+  const isReserved = item.status === 'Reserved' || item.initialAvailability === 'Reserved';
+  const reservationType = item.reservationType === 'checkout_hold'
+    ? 'checkout_hold'
+    : (isReserved ? 'manual_studio' : null);
+  const originalQuantity = (item.status === 'Sold' || isReserved) ? 0 : (item.originalQuantity ?? 1);
+
   return {
     inventoryCode: item.inventoryCode,
     title: item.title,
+    slug: item.slug || '',
     category: item.category,
     medium: item.medium,
     price: item.price,
     status: item.status,
-    originalQuantity: item.originalQuantity,
+    reservationType,
+    originalQuantity,
     preparationTime: item.preparationTime
   };
 }
@@ -211,6 +219,23 @@ export function getOrders() {
   }
 }
 
+function safeAtomicRename(tmp, target) {
+  try {
+    fs.renameSync(tmp, target);
+  } catch (err) {
+    if (err.code === 'EPERM' || err.code === 'EBUSY' || err.code === 'EACCES') {
+      try {
+        fs.copyFileSync(tmp, target);
+        try { fs.unlinkSync(tmp); } catch (_) {}
+        return;
+      } catch (_) {
+        throw err;
+      }
+    }
+    throw err;
+  }
+}
+
 /**
  * Transactional multi-file persistence for inventory and orders stores.
  * Writes staging temporary files first before renaming to guarantee
@@ -234,7 +259,7 @@ export function saveStoreTransaction({ inventory, orders } = {}) {
       tmpFiles.push({ tmp: ordTmp, target: ordFile });
     }
     for (const { tmp, target } of tmpFiles) {
-      fs.renameSync(tmp, target);
+      safeAtomicRename(tmp, target);
     }
   } catch (err) {
     for (const { tmp } of tmpFiles) {
@@ -252,7 +277,7 @@ export function saveStoreTransaction({ inventory, orders } = {}) {
 function atomicWriteJson(filePath, data) {
   const tmpPath = `${filePath}.${Date.now()}.${Math.random().toString(36).substring(2, 6)}.tmp`;
   fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
-  fs.renameSync(tmpPath, filePath);
+  safeAtomicRename(tmpPath, filePath);
 }
 
 /**
@@ -267,6 +292,11 @@ export function cleanExpiredReservations(inventory, orders) {
     const item = inventory[code];
     // Strictly preserve manual studio reservations (e.g. SS-SC-004)
     if (item.reservationType === 'manual_studio' || item.initialAvailability === 'Reserved') {
+      if (item.reservationType !== 'manual_studio') {
+        item.reservationType = 'manual_studio';
+        item.originalQuantity = 0;
+        changed = true;
+      }
       continue;
     }
 

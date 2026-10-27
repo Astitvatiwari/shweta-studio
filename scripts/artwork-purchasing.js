@@ -6,10 +6,9 @@ Author: Shweta Studio
 ==========================================
 */
 
-// Check if running on localhost with active backend server
-const API_BASE = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-  ? (window.location.origin.includes(':') ? window.location.origin : 'http://localhost:3000')
-  : '';
+const API_BASE = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+  ? (window.location.port === '3000' ? '' : `${window.location.protocol}//${window.location.hostname}:3000`)
+  : (typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://localhost:3000' : '');
 
 /**
  * Open Option A — Buy Original Modal

@@ -4,13 +4,14 @@
 
    Author: Shweta Studio
 ========================================== */
+@import url('ecommerce.css');
 
 /* ==========================================
    COLLECTIONS GRID LAYOUT
 ========================================== */
 .collection-grid {
   display: grid;
-  gap: 16px;
+  gap: 28px;
   grid-template-columns: repeat(12, minmax(0, 1fr));
 }
 
@@ -18,10 +19,19 @@
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--chalk);
-  grid-column: span 3;
-  display: grid;
-  transition: transform 0.28s ease, box-shadow 0.28s ease;
+  background: #ffffff;
+  grid-column: span 4;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100%;
+  box-sizing: border-box;
+  transition: transform 0.28s ease, box-shadow 0.28s ease, border-color 0.28s ease;
+}
+
+.collection-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px rgba(28, 25, 21, 0.07);
+  border-color: rgba(180, 95, 52, 0.35);
 }
 
 .works-category-grid .collection-card {
@@ -33,60 +43,115 @@
   grid-template-columns: minmax(0, 0.95fr) minmax(260px, 0.55fr);
 }
 
-.collection-card .image-swap {
-  aspect-ratio: 4 / 3.2;
+.card-link {
+  display: flex !important;
+  flex-direction: column !important;
+  flex-grow: 1 !important;
+  text-decoration: none !important;
+  color: inherit !important;
 }
 
-.collection-card-large .image-swap {
-  aspect-ratio: auto;
+/* ==========================================
+   IMAGE FRAME
+========================================== */
+.card-image-frame {
+  width: 100%;
+  height: 320px;
+  position: relative;
+  background: #fafafa;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid var(--line);
+}
+
+.card-image-frame img {
+  width: 100%;
+  height: 100%;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.collection-card:hover .card-image-frame img.image-primary {
+  transform: scale(1.02);
 }
 
 /* ==========================================
    PIECE TEXT & PRICE
 ========================================== */
 .piece-copy {
-  display: grid;
-  gap: 8px;
-  padding: 16px;
+  display: flex !important;
+  flex-direction: column !important;
+  flex-grow: 1 !important;
+  padding: 18px 20px 14px !important;
+  gap: 0 !important;
 }
 
-.piece-copy h2,
-.piece-copy h3 {
-  margin: 0;
-  font-weight: 500;
-}
-
-.piece-copy h2 {
-  font-size: 1.2rem;
-}
-
-.piece-copy h3 {
-  font-size: 1.32rem;
-}
-
-.piece-copy span {
-  margin-bottom: 0;
-  color: var(--muted);
-  font-size: 1rem;
-  line-height: 1.85;
-}
-
-.piece-copy p {
-  margin: 0;
-  color: var(--clay-dark);
-  font-size: 0.74rem;
-  font-weight: 600;
-  letter-spacing: 0.16em;
+.card-meta {
+  font-size: 0.72rem;
   text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  line-height: 1.3;
 }
 
-.piece-price {
-  font-family: "Poppins", sans-serif;
-  font-size: 0.95rem;
+.card-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.55rem;
+  font-weight: 500;
+  line-height: 1.25;
+  margin: 0 0 10px;
+  color: var(--charcoal);
+}
+
+.card-price-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #faf9f7;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+}
+
+.card-price-grid.single-col {
+  grid-template-columns: 1fr;
+}
+
+.card-price-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.card-price-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  display: block;
+}
+
+.card-price-val {
+  font-size: 1.05rem;
   font-weight: 600;
   color: var(--clay);
-  letter-spacing: 0.04em;
-  margin-top: 4px;
+  line-height: 1.2;
+  margin-top: 2px;
+  font-family: "Poppins", sans-serif;
+}
+
+.card-delivery-badge {
+  font-size: 0.66rem;
+  color: var(--sage);
+  font-weight: 500;
+  display: block;
+  line-height: 1.2;
+  margin-top: 2px;
 }
 
 /* ==========================================
@@ -98,17 +163,36 @@
   justify-content: center;
   padding: 4px 10px;
   border-radius: 4px;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   width: fit-content;
-  margin-top: 6px;
+  margin-top: auto;
+  line-height: 1.2;
 }
 
 .status-available {
   background: rgba(105, 114, 101, 0.12);
   color: var(--sage);
+}
+
+.status-available-on-inquiry {
+  background: rgba(48, 44, 38, 0.08);
+  color: var(--charcoal);
+  border: 1px solid rgba(48, 44, 38, 0.15);
+}
+
+.status-reserved {
+  background: rgba(180, 95, 52, 0.12);
+  color: var(--clay);
+  border: 1px solid rgba(180, 95, 52, 0.25);
+}
+
+.status-checkout-hold {
+  background: rgba(197, 160, 89, 0.15);
+  color: #8c6b1f;
+  border: 1px solid rgba(197, 160, 89, 0.3);
 }
 
 .status-sold {

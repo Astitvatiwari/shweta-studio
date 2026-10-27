@@ -7,8 +7,8 @@
 
 const CART_STORAGE_KEY = 'shweta_studio_cart_v1';
 const API_BASE = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-  ? (window.location.origin.includes(':') ? window.location.origin : 'http://localhost:3000')
-  : '';
+  ? (window.location.port === '3000' ? '' : `${window.location.protocol}//${window.location.hostname}:3000`)
+  : (typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://localhost:3000' : '');
 
 /**
  * Retrieve current cart items from localStorage.
@@ -384,6 +384,7 @@ function resolveImagePath(imgPath) {
 
 /**
  * Card click handler: Add to Cart from collection card.
+ * Server is strictly authoritative for purchase eligibility.
  */
 export async function handleCardAddToCart(inventoryCode, purchaseType = 'original', event) {
   if (event) {
@@ -391,32 +392,64 @@ export async function handleCardAddToCart(inventoryCode, purchaseType = 'origina
     event.stopPropagation();
   }
 
+  const cleanCode = (inventoryCode || '').trim().toUpperCase();
+  if (!cleanCode) return;
+
   try {
-    const res = await fetch(`${API_BASE}/api/inventory/${inventoryCode}`);
+    const res = await fetch(`${API_BASE}/api/inventory/${encodeURIComponent(cleanCode)}`);
     if (!res.ok) {
-      showToast(`Unable to verify artwork status for ${inventoryCode}.`);
+      let errorMsg = `Unable to verify artwork status for ${cleanCode}.`;
+      try {
+        const errData = await res.json();
+        if (errData && errData.error) errorMsg = errData.error;
+      } catch (_) {}
+      showToast(errorMsg);
       return;
     }
     const data = await res.json();
     if (!data.success || !data.item) {
-      showToast(`Artwork ${inventoryCode} not found.`);
+      showToast(`Artwork ${cleanCode} not found.`);
       return;
     }
 
     const art = data.item;
 
-    if (purchaseType === 'original' && (art.status === 'Sold' || art.originalQuantity <= 0)) {
-      showToast(`This original piece has already been sold. You may commission a made-to-order version.`, 'Customize', () => {
-        window.location.href = getRelativeUrl(`pieces/${art.slug || inventoryCode.toLowerCase()}.html#customize`);
-      });
-      return;
+    if (purchaseType === 'original') {
+      // 1. Sold check
+      if (art.status === 'Sold' || art.originalQuantity <= 0) {
+        showToast(`This original piece has already been sold. You may commission a made-to-order version.`, 'Customize', () => {
+          window.location.href = getRelativeUrl(`pieces/${art.slug || cleanCode.toLowerCase()}.html#customize`);
+        });
+        return;
+      }
+
+      // 2. Reserved check (manual studio vs temporary checkout hold)
+      if (art.status === 'Reserved') {
+        const isHold = art.reservationType === 'checkout_hold';
+        if (isHold) {
+          showToast(`Original artwork "${art.title}" is temporarily reserved in another checkout. Please check back shortly.`);
+        } else {
+          showToast(`Original artwork "${art.title}" is currently reserved. You may submit an inquiry.`, 'Inquire', () => {
+            window.location.href = getRelativeUrl(`pieces/${art.slug || cleanCode.toLowerCase()}.html#inquiry-container`);
+          });
+        }
+        return;
+      }
+
+      // 3. Inquiry-only check
+      if (art.status === 'Available on Inquiry' || !art.price) {
+        showToast(`"${art.title}" is available on studio inquiry only. Direct online purchase is not permitted.`, 'Inquire', () => {
+          window.location.href = getRelativeUrl(`pieces/${art.slug || cleanCode.toLowerCase()}.html#inquiry-container`);
+        });
+        return;
+      }
     }
 
     addToCart({
       inventoryCode: art.inventoryCode,
       title: art.title,
       slug: art.slug || '',
-      image: art.cardImage || `all work/scuptures/${art.title}/${art.title} 1.jpeg`,
+      image: art.cardImage || resolveImagePath(art.image) || `all work/scuptures/${art.title}/${art.title} 1.jpeg`,
       category: art.category,
       medium: art.medium,
       purchaseType,
@@ -426,12 +459,13 @@ export async function handleCardAddToCart(inventoryCode, purchaseType = 'origina
     }, true);
   } catch (err) {
     console.error('[CARD ADD TO CART]', err);
-    showToast(`Error adding ${inventoryCode} to cart.`);
+    showToast(`Verification service unavailable. Please check your connection and try again.`);
   }
 }
 
 /**
  * Card click handler: Fast-path Buy Now.
+ * Server is strictly authoritative for purchase eligibility.
  */
 export async function handleCardBuyNow(inventoryCode, purchaseType = 'original', event) {
   if (event) {
@@ -439,31 +473,63 @@ export async function handleCardBuyNow(inventoryCode, purchaseType = 'original',
     event.stopPropagation();
   }
 
+  const cleanCode = (inventoryCode || '').trim().toUpperCase();
+  if (!cleanCode) return;
+
   try {
-    const res = await fetch(`${API_BASE}/api/inventory/${inventoryCode}`);
+    const res = await fetch(`${API_BASE}/api/inventory/${encodeURIComponent(cleanCode)}`);
     if (!res.ok) {
-      showToast(`Unable to verify artwork status.`);
+      let errorMsg = `Unable to verify artwork status for ${cleanCode}.`;
+      try {
+        const errData = await res.json();
+        if (errData && errData.error) errorMsg = errData.error;
+      } catch (_) {}
+      showToast(errorMsg);
       return;
     }
     const data = await res.json();
     if (!data.success || !data.item) {
-      showToast(`Artwork not found.`);
+      showToast(`Artwork ${cleanCode} not found in catalog.`);
       return;
     }
     const art = data.item;
 
-    if (purchaseType === 'original' && (art.status === 'Sold' || art.originalQuantity <= 0)) {
-      showToast(`This original has already been sold. You can commission a made-to-order piece.`, 'Customize', () => {
-        window.location.href = getRelativeUrl(`pieces/${art.slug || inventoryCode.toLowerCase()}.html#customize`);
-      });
-      return;
+    if (purchaseType === 'original') {
+      // 1. Sold check
+      if (art.status === 'Sold' || art.originalQuantity <= 0) {
+        showToast(`This original piece has already been sold. You may commission a made-to-order piece.`, 'Customize', () => {
+          window.location.href = getRelativeUrl(`pieces/${art.slug || cleanCode.toLowerCase()}.html#customize`);
+        });
+        return;
+      }
+
+      // 2. Reserved check
+      if (art.status === 'Reserved') {
+        const isHold = art.reservationType === 'checkout_hold';
+        if (isHold) {
+          showToast(`Original artwork "${art.title}" is temporarily reserved in another checkout. Please check back shortly.`);
+        } else {
+          showToast(`Original artwork "${art.title}" is currently reserved. You may submit an inquiry.`, 'Inquire', () => {
+            window.location.href = getRelativeUrl(`pieces/${art.slug || cleanCode.toLowerCase()}.html#inquiry-container`);
+          });
+        }
+        return;
+      }
+
+      // 3. Inquiry-only check
+      if (art.status === 'Available on Inquiry' || !art.price) {
+        showToast(`"${art.title}" is available on studio inquiry only. Direct online purchase is not permitted.`, 'Inquire', () => {
+          window.location.href = getRelativeUrl(`pieces/${art.slug || cleanCode.toLowerCase()}.html#inquiry-container`);
+        });
+        return;
+      }
     }
 
-    // Fast-path to checkout with direct item parameter
-    window.location.href = getRelativeUrl(`checkout.html?buyNow=${encodeURIComponent(inventoryCode)}&type=${encodeURIComponent(purchaseType)}`);
+    // Fast-path to checkout ONLY after authoritative status verified!
+    window.location.href = getRelativeUrl(`checkout.html?buyNow=${encodeURIComponent(cleanCode)}&type=${encodeURIComponent(purchaseType)}`);
   } catch (err) {
     console.error('[CARD BUY NOW]', err);
-    window.location.href = getRelativeUrl(`checkout.html?buyNow=${encodeURIComponent(inventoryCode)}&type=${encodeURIComponent(purchaseType)}`);
+    showToast(`Verification service unavailable. Please check your connection and try again.`);
   }
 }
 

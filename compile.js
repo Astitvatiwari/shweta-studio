@@ -209,20 +209,47 @@ const OLDER_PAINTING_SKUS = new Set([
 const sitemapLinks = [];
 
 /**
+ * Determine single authoritative availability badge HTML for a collection card.
+ * Clearly distinguishes: Available for purchase, Available on inquiry,
+ * Manually reserved, Temporarily reserved during checkout, and Sold.
+ */
+function getCardAvailabilityBadge(art, cardInv = {}) {
+  const status = cardInv.status || art.availability;
+  if (status === 'Sold') {
+    return '<span class="status-tag status-sold">Sold</span>';
+  }
+  if (status === 'Reserved' || art.availability === 'Reserved') {
+    if (cardInv.reservationType === 'checkout_hold') {
+      return '<span class="status-tag status-checkout-hold">Temporarily Reserved</span>';
+    }
+    return '<span class="status-tag status-reserved">Reserved</span>';
+  }
+  if (status === 'Available on Inquiry' || !art.price || art.availability === 'Available on Inquiry') {
+    return '<span class="status-tag status-available-on-inquiry">Available on Inquiry</span>';
+  }
+  if (art.category === 'Jewellery') {
+    return '<span class="status-tag status-available">In Stock</span>';
+  }
+  return '<span class="status-tag status-available">Available</span>';
+}
+
+/**
  * Render consistent e-commerce action buttons on collection cards.
  * Complies with strict inventory rules:
  * - Direct purchasable: Buy Now + Add to Bag + View
- * - Sold unique original: Sold (disabled) + Customize + View
- * - Available on inquiry / unpriced: Inquire Now + Details
+ * - Sold unique original: Customize (primary) + View (restrained)
+ * - Available on inquiry / unpriced: Inquire Now (primary) + Details
+ * - Manually reserved / checkout hold: Inquire Studio/Piece + View (NO Buy Now or Add to Bag!)
  */
-function renderCardActions(art, cardStatus) {
-  const isDirectPurchasable = Boolean(art.price && art.availability !== 'Available on Inquiry');
-  const isSold = cardStatus === 'Sold';
-  const isReserved = cardStatus === 'Reserved';
+function renderCardActions(art, cardStatus, cardInv = {}) {
+  const status = cardInv.status || art.availability || cardStatus;
+  const isDirectPurchasable = Boolean(art.price && art.availability !== 'Available on Inquiry' && status !== 'Available on Inquiry');
+  const isSold = status === 'Sold';
+  const isReserved = status === 'Reserved' || art.availability === 'Reserved';
 
   if (!isDirectPurchasable) {
     return `
-          <div class="card-action-bar inquiry-only">
+          <div class="card-action-bar single-action inquiry-only">
             <a href="pieces/${art.slug}.html#inquiry-container" class="card-btn card-btn-primary" style="width: 100%;">Inquire Now</a>
             <a href="pieces/${art.slug}.html" class="card-btn card-btn-text">Details</a>
           </div>`;
@@ -230,27 +257,33 @@ function renderCardActions(art, cardStatus) {
 
   if (isSold) {
     return `
-          <div class="card-action-bar sold-out">
-            <span class="card-btn card-btn-secondary" style="cursor: not-allowed; opacity: 0.65; background: #f5f5f5;">Sold</span>
-            <a href="pieces/${art.slug}.html#customization-modal" class="card-btn card-btn-primary">Customize</a>
+          <div class="card-action-bar single-action sold-out">
+            <a href="pieces/${art.slug}.html#customization-modal" class="card-btn card-btn-primary" style="width: 100%;">Customize</a>
             <a href="pieces/${art.slug}.html" class="card-btn card-btn-text">View</a>
           </div>`;
   }
 
   if (isReserved) {
+    const isHold = cardInv.reservationType === 'checkout_hold';
+    const btnLabel = isHold ? 'Inquire Piece' : 'Inquire Studio';
     return `
-          <div class="card-action-bar sold-out">
-            <span class="card-btn card-btn-secondary" style="cursor: not-allowed; opacity: 0.65; background: #f5f5f5;">Reserved</span>
-            <a href="pieces/${art.slug}.html#customization-modal" class="card-btn card-btn-primary">Customize</a>
+          <div class="card-action-bar single-action reserved-bar">
+            <a href="pieces/${art.slug}.html#inquiry-container" class="card-btn card-btn-secondary" style="width: 100%;">${btnLabel}</a>
             <a href="pieces/${art.slug}.html" class="card-btn card-btn-text">View</a>
           </div>`;
   }
 
   const purchaseType = art.category === 'Jewellery' ? 'stocked' : 'original';
+  const isJewellery = art.category === 'Jewellery';
+  const actionButtons = isJewellery
+    ? `<button type="button" class="card-btn card-btn-primary" onclick="event.preventDefault(); event.stopPropagation(); handleCardAddToCart('${art.inventoryCode}', '${purchaseType}', event)">Add to Bag</button>
+       <button type="button" class="card-btn card-btn-secondary" onclick="event.preventDefault(); event.stopPropagation(); handleCardBuyNow('${art.inventoryCode}', '${purchaseType}', event)">Buy Now</button>`
+    : `<button type="button" class="card-btn card-btn-primary" onclick="event.preventDefault(); event.stopPropagation(); handleCardBuyNow('${art.inventoryCode}', '${purchaseType}', event)">Buy Now</button>
+       <button type="button" class="card-btn card-btn-secondary" onclick="event.preventDefault(); event.stopPropagation(); handleCardAddToCart('${art.inventoryCode}', '${purchaseType}', event)">Add to Bag</button>`;
+
   return `
           <div class="card-action-bar">
-            <button type="button" class="card-btn card-btn-primary" onclick="event.preventDefault(); event.stopPropagation(); handleCardBuyNow('${art.inventoryCode}', '${purchaseType}', event)">Buy Now</button>
-            <button type="button" class="card-btn card-btn-secondary" onclick="event.preventDefault(); event.stopPropagation(); handleCardAddToCart('${art.inventoryCode}', '${purchaseType}', event)">Add to Bag</button>
+            ${actionButtons}
             <a href="pieces/${art.slug}.html" class="card-btn card-btn-text">View</a>
           </div>`;
 }
@@ -916,7 +949,7 @@ pagesToCompile.forEach(page => {
     let cardsHtml = '';
     
     if (page.file === 'sculptures.html') {
-      cardsHtml = '<section class="collection-grid bounded-grid" style="gap: 30px;">';
+      cardsHtml = '<section class="collection-grid bounded-grid" style="gap: 28px;">';
       artworks.filter(a => a.category === 'Sculptures').forEach(art => {
         const primarySrc = art.cardImage || art.images[0];
         const imgMedium = getWebpPath(primarySrc, 'medium');
@@ -925,54 +958,51 @@ pagesToCompile.forEach(page => {
         
         const cardInv = inventoryStore[art.inventoryCode] || {};
         const cardStatus = cardInv.status || art.availability;
-        const statusClass = 'status-' + cardStatus.toLowerCase().replace(/\s+/g, '-');
         const hasGallery = art.images.length > 1 ? 'has-gallery' : '';
         
-        let imageTags = `<img class="image-primary" src="${imgMedium}" alt="${art.title} — original ${art.medium.toLowerCase()} by ${art.artist || 'Shweta Jain Maheshwari'}" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">`;
+        let imageTags = `<img class="image-primary" src="${imgMedium}" alt="${art.title} — original ${art.medium.toLowerCase()} by ${art.artist || 'Shweta Jain Maheshwari'}" style="width: 100%; height: 100%; object-fit: contain; padding: 14px;" loading="lazy">`;
         if (art.images.length > 1) {
-          imageTags += `\n              <img class="image-secondary" src="${imgAlt}" alt="${art.title} alternate view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">`;
-          imageTags += `\n              <img class="image-tertiary" src="${imgTert}" alt="${art.title} detail view" style="width: 100%; height: 100%; object-fit: contain;" loading="lazy">`;
+          imageTags += `\n              <img class="image-secondary" src="${imgAlt}" alt="${art.title} alternate view" style="width: 100%; height: 100%; object-fit: contain; padding: 14px;" loading="lazy">`;
+          imageTags += `\n              <img class="image-tertiary" src="${imgTert}" alt="${art.title} detail view" style="width: 100%; height: 100%; object-fit: contain; padding: 14px;" loading="lazy">`;
         }
         
         let priceHtml = '';
-        if (art.price) {
+        if (art.price && art.availability !== 'Available on Inquiry') {
           const usdPrice = calculateSculptureIntlUsdPrice(art.price);
           priceHtml = `
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding: 8px 10px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
-                <div>
-                  <span style="font-size: 0.68rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">India</span>
-                  <strong style="font-size: 1.05rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${art.price}</strong>
+              <div class="card-price-grid">
+                <div class="card-price-col">
+                  <span class="card-price-label">India</span>
+                  <strong class="card-price-val">${art.price}</strong>
                 </div>
-                <div>
-                  <span style="font-size: 0.68rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">Worldwide</span>
-                  <strong style="font-size: 1.05rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${usdPrice}</strong>
+                <div class="card-price-col">
+                  <span class="card-price-label">Worldwide</span>
+                  <strong class="card-price-val">${usdPrice}</strong>
                 </div>
               </div>`;
-        } else {
-          priceHtml = `
-              <span style="font-size: 0.9rem; color: var(--muted); font-weight: 500;">Available on Inquiry</span>`;
         }
 
         const artistBadge = (art.artist && art.artist !== 'Shweta Jain Maheshwari') ? ` • By ${art.artist}` : '';
 
         cardsHtml += `
-        <article class="collection-card ${hasGallery}" data-reveal style="background: #ffffff;">
-          <a href="pieces/${art.slug}.html" style="text-decoration: none; color: inherit; display: grid;">
-            <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa; position: relative;">
+        <article class="collection-card ${hasGallery}" data-reveal>
+          <a href="pieces/${art.slug}.html" class="card-link">
+            <div class="image-swap card-image-frame">
               ${imageTags}
             </div>
-            <div class="piece-copy" style="padding: 20px 0 10px;">
-              <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">${art.inventoryCode} • ${art.medium}${artistBadge}</span>
-              <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">${art.title}</h3>${priceHtml}
-              <span class="status-tag ${statusClass}" style="margin-top: 8px;">${cardStatus}</span>
+            <div class="piece-copy">
+              <span class="card-meta">${art.inventoryCode} • ${art.medium}${artistBadge}</span>
+              <h3 class="card-title">${art.title}</h3>
+              ${priceHtml}
+              ${getCardAvailabilityBadge(art, cardInv)}
             </div>
           </a>
-          ${renderCardActions(art, cardStatus)}
+          ${renderCardActions(art, cardStatus, cardInv)}
         </article>`;
       });
       cardsHtml += '\n      </section>';
     } else if (page.file === 'paintings.html') {
-      cardsHtml = '<section class="collection-grid bounded-grid" style="gap: 30px;">';
+      cardsHtml = '<section class="collection-grid bounded-grid" style="gap: 28px;">';
       const paintingList = artworks.filter(a => a.category === 'Paintings');
       const sortedPaintings = [
         ...paintingList.filter(a => INCLUDED_DELIVERY_SKUS.has(a.inventoryCode)),
@@ -982,57 +1012,69 @@ pagesToCompile.forEach(page => {
         const imgMedium = getWebpPath(art.images[0], 'medium');
         const cardInv = inventoryStore[art.inventoryCode] || {};
         const cardStatus = cardInv.status || art.availability;
-        const statusClass = 'status-' + cardStatus.toLowerCase().replace(/\s+/g, '-');
+        const hasGallery = art.images.length > 1 ? 'has-gallery' : '';
+        
+        let imageTags = `<img class="image-primary" src="${imgMedium}" alt="${art.title} — original ${art.medium.toLowerCase()} by ${art.artist || 'Shweta Jain Maheshwari'}" style="width: 100%; height: 100%; object-fit: contain; padding: 10px;" loading="lazy">`;
+        if (art.images.length > 1) {
+          const imgAlt = getWebpPath(art.images[1], 'medium');
+          imageTags += `\n              <img class="image-secondary" src="${imgAlt}" alt="${art.title} alternate view" style="width: 100%; height: 100%; object-fit: contain; padding: 10px;" loading="lazy">`;
+        }
         
         let priceHtml = '';
         if (INCLUDED_DELIVERY_SKUS.has(art.inventoryCode)) {
           const usdPrice = calculateIntlUsdPrice(art.price);
           priceHtml = `
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding: 8px 10px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
-                <div>
-                  <span style="font-size: 0.68rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">India</span>
-                  <strong style="font-size: 1.05rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${art.price}</strong>
-                  <span style="font-size: 0.68rem; color: var(--sage); font-weight: 500; display: block; line-height: 1.2;">Domestic delivery included</span>
+              <div class="card-price-grid">
+                <div class="card-price-col">
+                  <span class="card-price-label">India</span>
+                  <strong class="card-price-val">${art.price}</strong>
+                  <span class="card-delivery-badge">Domestic delivery included</span>
                 </div>
-                <div>
-                  <span style="font-size: 0.68rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">Worldwide</span>
-                  <strong style="font-size: 1.05rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${usdPrice}</strong>
-                  <span style="font-size: 0.68rem; color: var(--sage); font-weight: 500; display: block; line-height: 1.2;">International delivery included</span>
+                <div class="card-price-col">
+                  <span class="card-price-label">Worldwide</span>
+                  <strong class="card-price-val">${usdPrice}</strong>
+                  <span class="card-delivery-badge">International delivery included</span>
                 </div>
               </div>`;
         } else if (OLDER_PAINTING_SKUS.has(art.inventoryCode)) {
           const inrPrice = calculateDomesticInrPrice(art.price);
           priceHtml = `
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; padding: 8px 10px; background: #fafafa; border: 1px solid var(--line); border-radius: var(--radius);">
-                <div>
-                  <span style="font-size: 0.68rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">India</span>
-                  <strong style="font-size: 1.05rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${inrPrice}</strong>
-                  <span style="font-size: 0.68rem; color: var(--sage); font-weight: 500; display: block; line-height: 1.2;">Domestic delivery included</span>
+              <div class="card-price-grid">
+                <div class="card-price-col">
+                  <span class="card-price-label">India</span>
+                  <strong class="card-price-val">${inrPrice}</strong>
+                  <span class="card-delivery-badge">Domestic delivery included</span>
                 </div>
-                <div>
-                  <span style="font-size: 0.68rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.06em; font-weight: 600; display: block;">Worldwide</span>
-                  <strong style="font-size: 1.05rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2; margin: 2px 0;">${art.price}</strong>
-                  <span style="font-size: 0.68rem; color: var(--sage); font-weight: 500; display: block; line-height: 1.2;">International delivery included</span>
+                <div class="card-price-col">
+                  <span class="card-price-label">Worldwide</span>
+                  <strong class="card-price-val">${art.price}</strong>
+                  <span class="card-delivery-badge">International delivery included</span>
                 </div>
               </div>`;
-        } else {
-          priceHtml = `<strong style="font-size: 1.15rem; font-weight: 600; color: var(--clay);">${art.price}</strong>`;
+        } else if (art.price) {
+          priceHtml = `
+              <div class="card-price-grid single-col">
+                <div class="card-price-col">
+                  <span class="card-price-label">Price</span>
+                  <strong class="card-price-val">${art.price}</strong>
+                </div>
+              </div>`;
         }
 
         cardsHtml += `
-        <article class="collection-card" data-reveal style="background: #ffffff;">
-          <a href="pieces/${art.slug}.html" style="text-decoration: none; color: inherit; display: grid;">
-            <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa;">
-               <img class="image-primary" src="${imgMedium}" alt="${art.title} — original ${art.medium.toLowerCase()} by ${art.artist || 'Shweta Jain Maheshwari'}" loading="lazy">
+        <article class="collection-card ${hasGallery}" data-reveal>
+          <a href="pieces/${art.slug}.html" class="card-link">
+            <div class="image-swap card-image-frame">
+               ${imageTags}
             </div>
-            <div class="piece-copy" style="padding: 20px 0 10px;">
-              <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">${art.inventoryCode} • ${art.medium}</span>
-              <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">${art.title}</h3>
+            <div class="piece-copy">
+              <span class="card-meta">${art.inventoryCode} • ${art.medium}</span>
+              <h3 class="card-title">${art.title}</h3>
               ${priceHtml}
-              <span class="status-tag ${statusClass}" style="margin-top: 8px;">${cardStatus}</span>
+              ${getCardAvailabilityBadge(art, cardInv)}
             </div>
           </a>
-          ${renderCardActions(art, cardStatus)}
+          ${renderCardActions(art, cardStatus, cardInv)}
         </article>`;
       });
       cardsHtml += '\n      </section>';
@@ -1040,7 +1082,7 @@ pagesToCompile.forEach(page => {
       cardsHtml = `
       <section class="bounded-grid" style="border: none; box-shadow: none; padding-top: 20px; background: #ffffff;">
         <h2 style="font-family: 'Cormorant Garamond', serif; font-size: 2.2rem; font-weight: 400; margin-bottom: 25px; border-bottom: 1px solid var(--line); padding-bottom: 10px; color: var(--charcoal);">$10 Collection</h2>
-        <div class="collection-grid" style="gap: 30px;">`;
+        <div class="collection-grid" style="gap: 28px;">`;
         
       artworks.filter(a => a.category === 'Jewellery' && a.collection === '$10 Collection').forEach(art => {
         const inrPrice = calculateJewelleryInrPrice(art.price);
@@ -1049,35 +1091,40 @@ pagesToCompile.forEach(page => {
         const imgTert = art.images[2] ? getWebpPath(art.images[2], 'medium') : imgMedium;
         const cardInv = inventoryStore[art.inventoryCode] || {};
         const cardStatus = cardInv.status || art.availability;
-        const statusClass = 'status-' + cardStatus.toLowerCase().replace(/\s+/g, '-');
         const hasGallery = art.images.length > 1 ? 'has-gallery' : '';
         const galleryClass = art.images.length === 2 ? 'has-gallery has-2-images' : hasGallery;
         
-        let imageTags = `<img class="image-primary" src="${imgMedium}" alt="${art.title} by ${art.artist || 'Shweta Jain'}" loading="lazy">`;
+        let imageTags = `<img class="image-primary" src="${imgMedium}" alt="${art.title} by ${art.artist || 'Shweta Jain'}" style="width: 100%; height: 100%; object-fit: contain; padding: 12px;" loading="lazy">`;
         if (art.images.length > 1) {
-          imageTags += `\n                <img class="image-secondary" src="${imgAlt}" alt="${art.title} alternate view" loading="lazy">`;
+          imageTags += `\n                <img class="image-secondary" src="${imgAlt}" alt="${art.title} alternate view" style="width: 100%; height: 100%; object-fit: contain; padding: 12px;" loading="lazy">`;
           if (art.images.length > 2) {
-            imageTags += `\n                <img class="image-tertiary" src="${imgTert}" alt="${art.title} detail view" loading="lazy">`;
+            imageTags += `\n                <img class="image-tertiary" src="${imgTert}" alt="${art.title} detail view" style="width: 100%; height: 100%; object-fit: contain; padding: 12px;" loading="lazy">`;
           }
         }
         
         cardsHtml += `
-          <article class="collection-card ${galleryClass}" data-reveal style="background: #ffffff;">
-            <a href="pieces/${art.slug}.html" style="text-decoration: none; color: inherit; display: grid;">
-              <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa;">
+          <article class="collection-card ${galleryClass}" data-reveal>
+            <a href="pieces/${art.slug}.html" class="card-link">
+              <div class="image-swap card-image-frame">
                 ${imageTags}
               </div>
-              <div class="piece-copy" style="padding: 20px 0 10px;">
-                <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">${art.inventoryCode} • ${art.medium}</span>
-                <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">${art.title}</h3>
-                <div style="margin: 4px 0 6px;">
-                  <strong style="font-size: 1.15rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2;">${inrPrice}</strong>
-                  <span style="font-size: 0.9rem; font-weight: 500; color: var(--muted); display: block; margin-top: 2px;">${art.price}</span>
+              <div class="piece-copy">
+                <span class="card-meta">${art.inventoryCode} • ${art.medium}</span>
+                <h3 class="card-title">${art.title}</h3>
+                <div class="card-price-grid">
+                  <div class="card-price-col">
+                    <span class="card-price-label">India</span>
+                    <strong class="card-price-val">${inrPrice}</strong>
+                  </div>
+                  <div class="card-price-col">
+                    <span class="card-price-label">Worldwide</span>
+                    <strong class="card-price-val">${art.price}</strong>
+                  </div>
                 </div>
-                <span class="status-tag ${statusClass}" style="margin-top: 8px;">${cardStatus}</span>
+                ${getCardAvailabilityBadge(art, cardInv)}
               </div>
             </a>
-            ${renderCardActions(art, cardStatus)}
+            ${renderCardActions(art, cardStatus, cardInv)}
           </article>`;
       });
       
@@ -1086,7 +1133,7 @@ pagesToCompile.forEach(page => {
       </section>
       <section class="bounded-grid" style="border: none; box-shadow: none; padding-top: 40px; background: #ffffff;">
         <h2 style="font-family: 'Cormorant Garamond', serif; font-size: 2.2rem; font-weight: 400; margin-bottom: 25px; border-bottom: 1px solid var(--line); padding-bottom: 10px; color: var(--charcoal);">$20 Collection</h2>
-        <div class="collection-grid" style="gap: 30px;">`;
+        <div class="collection-grid" style="gap: 28px;">`;
         
       artworks.filter(a => a.category === 'Jewellery' && a.collection === '$20 Collection').forEach(art => {
         const inrPrice = calculateJewelleryInrPrice(art.price);
@@ -1095,35 +1142,40 @@ pagesToCompile.forEach(page => {
         const imgTert = art.images[2] ? getWebpPath(art.images[2], 'medium') : imgMedium;
         const cardInv = inventoryStore[art.inventoryCode] || {};
         const cardStatus = cardInv.status || art.availability;
-        const statusClass = 'status-' + cardStatus.toLowerCase().replace(/\s+/g, '-');
         const hasGallery = art.images.length > 1 ? 'has-gallery' : '';
         const galleryClass = art.images.length === 2 ? 'has-gallery has-2-images' : hasGallery;
         
-        let imageTags = `<img class="image-primary" src="${imgMedium}" alt="${art.title} by ${art.artist || 'Shweta Jain'}" loading="lazy">`;
+        let imageTags = `<img class="image-primary" src="${imgMedium}" alt="${art.title} by ${art.artist || 'Shweta Jain'}" style="width: 100%; height: 100%; object-fit: contain; padding: 12px;" loading="lazy">`;
         if (art.images.length > 1) {
-          imageTags += `\n                <img class="image-secondary" src="${imgAlt}" alt="${art.title} alternate view" loading="lazy">`;
+          imageTags += `\n                <img class="image-secondary" src="${imgAlt}" alt="${art.title} alternate view" style="width: 100%; height: 100%; object-fit: contain; padding: 12px;" loading="lazy">`;
           if (art.images.length > 2) {
-            imageTags += `\n                <img class="image-tertiary" src="${imgTert}" alt="${art.title} detail view" loading="lazy">`;
+            imageTags += `\n                <img class="image-tertiary" src="${imgTert}" alt="${art.title} detail view" style="width: 100%; height: 100%; object-fit: contain; padding: 12px;" loading="lazy">`;
           }
         }
         
         cardsHtml += `
-          <article class="collection-card ${galleryClass}" data-reveal style="background: #ffffff;">
-            <a href="pieces/${art.slug}.html" style="text-decoration: none; color: inherit; display: grid;">
-              <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa;">
+          <article class="collection-card ${galleryClass}" data-reveal>
+            <a href="pieces/${art.slug}.html" class="card-link">
+              <div class="image-swap card-image-frame">
                 ${imageTags}
               </div>
-              <div class="piece-copy" style="padding: 20px 0 10px;">
-                <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 5px;">${art.inventoryCode} • ${art.medium}</span>
-                <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.62rem; font-weight: 400; margin: 0 0 8px; color: var(--charcoal);">${art.title}</h3>
-                <div style="margin: 4px 0 6px;">
-                  <strong style="font-size: 1.15rem; font-weight: 600; color: var(--clay); display: block; line-height: 1.2;">${inrPrice}</strong>
-                  <span style="font-size: 0.9rem; font-weight: 500; color: var(--muted); display: block; margin-top: 2px;">${art.price}</span>
+              <div class="piece-copy">
+                <span class="card-meta">${art.inventoryCode} • ${art.medium}</span>
+                <h3 class="card-title">${art.title}</h3>
+                <div class="card-price-grid">
+                  <div class="card-price-col">
+                    <span class="card-price-label">India</span>
+                    <strong class="card-price-val">${inrPrice}</strong>
+                  </div>
+                  <div class="card-price-col">
+                    <span class="card-price-label">Worldwide</span>
+                    <strong class="card-price-val">${art.price}</strong>
+                  </div>
                 </div>
-                <span class="status-tag ${statusClass}" style="margin-top: 8px;">${cardStatus}</span>
+                ${getCardAvailabilityBadge(art, cardInv)}
               </div>
             </a>
-            ${renderCardActions(art, cardStatus)}
+            ${renderCardActions(art, cardStatus, cardInv)}
           </article>`;
       });
       cardsHtml += '\n        </div>\n      </section>';
@@ -1137,37 +1189,37 @@ pagesToCompile.forEach(page => {
       const jewelCount = artworks.filter(a => a.category === 'Jewellery').length;
       
       cardsHtml = `
-      <section class="collection-grid bounded-grid works-category-grid" style="background: #ffffff; border: none; box-shadow: none; gap: 30px;">
+      <section class="collection-grid bounded-grid works-category-grid" style="background: #ffffff; border: none; box-shadow: none; gap: 28px;">
         <article class="collection-card" data-reveal style="background: #ffffff;">
-          <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa;">
-            <img src="${sculpCover}" alt="Sculptures Collection by Shweta Jain Maheshwari" style="width: 100%; height: 100%; object-fit: contain;">
+          <div class="image-swap card-image-frame">
+            <img src="${sculpCover}" alt="Sculptures Collection by Shweta Jain Maheshwari" style="width: 100%; height: 100%; object-fit: contain; padding: 14px;">
           </div>
-          <div class="piece-copy" style="padding: 20px 0 15px; display: grid; gap: 6px;">
+          <div class="piece-copy" style="padding: 20px 20px 16px; display: flex; flex-direction: column; flex-grow: 1; gap: 6px;">
             <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; font-weight: 400; margin: 0; color: var(--charcoal);">Sculptures</h3>
             <span style="color: var(--muted); font-size: 0.86rem;">${sculpCount} Works</span>
-            <a href="sculptures.html" class="button button-secondary" style="margin-top: 10px; width: fit-content; border-radius: 4px; font-size: 0.76rem; padding: 6px 16px;">View Collection</a>
+            <a href="sculptures.html" class="button button-secondary" style="margin-top: auto; width: fit-content; border-radius: 4px; font-size: 0.76rem; padding: 8px 18px;">View Collection</a>
           </div>
         </article>
  
         <article class="collection-card" data-reveal style="background: #ffffff;">
-          <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa;">
-            <img src="${paintCover}" alt="Paintings Collection by Shweta Jain Maheshwari" style="width: 100%; height: 100%; object-fit: contain;">
+          <div class="image-swap card-image-frame">
+            <img src="${paintCover}" alt="Paintings Collection by Shweta Jain Maheshwari" style="width: 100%; height: 100%; object-fit: contain; padding: 10px;">
           </div>
-          <div class="piece-copy" style="padding: 20px 0 15px; display: grid; gap: 6px;">
+          <div class="piece-copy" style="padding: 20px 20px 16px; display: flex; flex-direction: column; flex-grow: 1; gap: 6px;">
             <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; font-weight: 400; margin: 0; color: var(--charcoal);">Paintings</h3>
             <span style="color: var(--muted); font-size: 0.86rem;">${paintCount} Works</span>
-            <a href="paintings.html" class="button button-secondary" style="margin-top: 10px; width: fit-content; border-radius: 4px; font-size: 0.76rem; padding: 6px 16px;">View Collection</a>
+            <a href="paintings.html" class="button button-secondary" style="margin-top: auto; width: fit-content; border-radius: 4px; font-size: 0.76rem; padding: 8px 18px;">View Collection</a>
           </div>
         </article>
  
         <article class="collection-card" data-reveal style="background: #ffffff;">
-          <div class="image-swap" style="aspect-ratio: 4/5; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #fafafa;">
-            <img src="${jewelCover}" alt="Jewellery &  Handmade Creations Collection" style="width: 100%; height: 100%; object-fit: contain;">
+          <div class="image-swap card-image-frame">
+            <img src="${jewelCover}" alt="Jewellery &  Handmade Creations Collection" style="width: 100%; height: 100%; object-fit: contain; padding: 12px;">
           </div>
-          <div class="piece-copy" style="padding: 20px 0 15px; display: grid; gap: 6px;">
+          <div class="piece-copy" style="padding: 20px 20px 16px; display: flex; flex-direction: column; flex-grow: 1; gap: 6px;">
             <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; font-weight: 400; margin: 0; color: var(--charcoal);">Jewellery &  Handmade Creations</h3>
             <span style="color: var(--muted); font-size: 0.86rem;">${jewelCount} Works</span>
-            <a href="jewellery.html" class="button button-secondary" style="margin-top: 10px; width: fit-content; border-radius: 4px; font-size: 0.76rem; padding: 6px 16px;">View Collection</a>
+            <a href="jewellery.html" class="button button-secondary" style="margin-top: auto; width: fit-content; border-radius: 4px; font-size: 0.76rem; padding: 8px 18px;">View Collection</a>
           </div>
         </article>
       </section>`;
@@ -1177,7 +1229,10 @@ pagesToCompile.forEach(page => {
     content = content.replace(cardsRegex, `${cardsStart}\n${cardsHtml}\n${cardsEnd}`);
   }
   
-  // Ensure ecommerce.css is linked in page <head>
+  // Ensure collections.css and ecommerce.css are linked in page <head>
+  if (page.type === 'catalog' && !content.includes('styles/collections.css')) {
+    content = content.replace('</head>', '  <link rel="stylesheet" href="styles/collections.css">\n</head>');
+  }
   if (!content.includes('styles/ecommerce.css')) {
     content = content.replace('</head>', '  <link rel="stylesheet" href="styles/ecommerce.css">\n</head>');
   }

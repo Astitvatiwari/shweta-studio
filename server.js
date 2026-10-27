@@ -260,7 +260,11 @@ const server = http.createServer(async (req, res) => {
 
   // 2. GET /api/inventory/:code - Single item sanitized inventory
   if (req.method === 'GET' && pathname.startsWith('/api/inventory/')) {
-    const code = pathname.substring('/api/inventory/'.length).trim().toUpperCase();
+    let rawCode = pathname.substring('/api/inventory/'.length);
+    try {
+      rawCode = decodeURIComponent(rawCode);
+    } catch (_) {}
+    const code = rawCode.trim().toUpperCase();
     const item = getSanitizedArtworkInventory(code);
     if (!item) {
       return sendJson(res, 404, { success: false, error: `Artwork code ${code} not found.` });

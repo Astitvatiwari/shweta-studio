@@ -36,12 +36,13 @@ const {
   initializeInventory,
   updateOrderPaymentStatus,
   cancelCheckoutReservation,
+  cleanExpiredReservations,
   saveStoreTransaction
 } = await import('../data/inventory-store.js');
 
 let serverInstance = null;
 let passedCount = 0;
-const totalCount = 28;
+const totalCount = 30;
 
 function reportTest(num, name, passed, details = '') {
   const symbol = passed ? '✅' : '❌';
@@ -1123,6 +1124,170 @@ async function runTests() {
       reportTest(28, 'Staging demo_simulated Orders Never Sell Artwork on Re-initialization', true,
         `Orders with demo_simulated paymentStatus strictly ignored during inventory initialization`);
       assert.ok(true);
+    }
+
+    // ----------------------------------------------------
+    // Test 29: Authoritative Availability Endpoint (/api/inventory/:code) & Reservation Typing
+    // ----------------------------------------------------
+    {
+      // 1. Available artwork verification (SS-SC-002 Waxen Form)
+      // Ensure it is available in test store for this check
+      const inv = getInventory();
+      inv['SS-SC-002'].status = 'Available';
+      inv['SS-SC-002'].originalQuantity = 1;
+      inv['SS-SC-002'].reservedUntil = null;
+      inv['SS-SC-002'].reservationType = null;
+      saveStoreTransaction({ inventory: inv });
+
+      const resAvailable = await fetch(`${BASE_URL}/api/inventory/SS-SC-002`);
+      assert.strictEqual(resAvailable.status, 200);
+      const dataAvailable = await resAvailable.json();
+      const itemAvailable = dataAvailable.item || dataAvailable;
+      assert.strictEqual(itemAvailable.inventoryCode, 'SS-SC-002');
+      assert.strictEqual(itemAvailable.status, 'Available');
+      assert.strictEqual(itemAvailable.reservationType, null);
+      assert.strictEqual(itemAvailable.originalQuantity, 1);
+
+      // 2. URL-encoded code verification
+      const resEncoded = await fetch(`${BASE_URL}/api/inventory/${encodeURIComponent('SS-SC-002')}`);
+      assert.strictEqual(resEncoded.status, 200);
+
+      // 3. Inquiry-only artwork verification (SS-SC-001)
+      const resInquiry = await fetch(`${BASE_URL}/api/inventory/SS-SC-001`);
+      assert.strictEqual(resInquiry.status, 200);
+      const dataInquiry = await resInquiry.json();
+      const itemInquiry = dataInquiry.item || dataInquiry;
+      assert.strictEqual(itemInquiry.status, 'Available on Inquiry');
+      assert.strictEqual(itemInquiry.originalQuantity, 1);
+
+      // 4. Manually reserved studio piece verification (SS-SC-004)
+      const resReserved = await fetch(`${BASE_URL}/api/inventory/SS-SC-004`);
+      assert.strictEqual(resReserved.status, 200);
+      const dataReserved = await resReserved.json();
+      const itemReserved = dataReserved.item || dataReserved;
+      assert.strictEqual(itemReserved.status, 'Reserved');
+      assert.strictEqual(itemReserved.reservationType, 'manual_studio');
+      assert.strictEqual(itemReserved.originalQuantity, 0);
+
+      // 5. Non-existent artwork returns 404 JSON error
+      const resNotFound = await fetch(`${BASE_URL}/api/inventory/SS-INVALID-SKU-999`);
+      assert.strictEqual(resNotFound.status, 404);
+      const dataNotFound = await resNotFound.json();
+      assert.ok(dataNotFound.error, 'Returns JSON error on missing SKU');
+
+      reportTest(29, 'Authoritative Availability Endpoint (/api/inventory/:code) & Reservation Typing', true,
+        'SS-SC-002 Available, SS-SC-001 Inquiry-only, SS-SC-004 manual_studio, 404 for invalid SKU');
+    }
+
+    // ----------------------------------------------------
+    // Test 30: Temporary Checkout Hold vs Manual Reservation & Expiry Protection
+    // ----------------------------------------------------
+    {
+      // 1. Create a checkout order with temporary hold for SS-PT-007
+      const invBefore = getInventory();
+      invBefore['SS-PT-007'].status = 'Available';
+      invBefore['SS-PT-007'].originalQuantity = 1;
+      saveStoreTransaction({ inventory: invBefore });
+
+      const checkoutRes = await fetch(`${BASE_URL}/api/checkout/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer: {
+            name: 'First Buyer',
+            email: 'buyer1@example.com',
+            phone: '+91 98765 43210',
+            address: 'Gallery Street, Mumbai',
+            country: 'India'
+          },
+          items: [
+            { inventoryCode: 'SS-PT-007', purchaseType: 'original', quantity: 1 }
+          ],
+          clientRequestId: `REQ-HOLD-${Date.now()}`
+        })
+      });
+      assert.strictEqual(checkoutRes.status, 201);
+
+      // 2. Query availability endpoint during checkout hold
+      const holdQueryRes = await fetch(`${BASE_URL}/api/inventory/SS-PT-007`);
+      assert.strictEqual(holdQueryRes.status, 200);
+      const holdDataRaw = await holdQueryRes.json();
+      const holdItem = holdDataRaw.item || holdDataRaw;
+      assert.strictEqual(holdItem.status, 'Reserved');
+      assert.strictEqual(holdItem.reservationType, 'checkout_hold');
+
+      // 3. Second buyer attempts to checkout the held artwork -> blocked with 409
+      const secondBuyerRes = await fetch(`${BASE_URL}/api/checkout/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer: {
+            name: 'Second Buyer',
+            email: 'buyer2@example.com',
+            phone: '+91 98765 43211',
+            address: 'Art Blvd, Delhi',
+            country: 'India'
+          },
+          items: [
+            { inventoryCode: 'SS-PT-007', purchaseType: 'original', quantity: 1 }
+          ],
+          clientRequestId: `REQ-HOLD-2-${Date.now()}`
+        })
+      });
+      assert.strictEqual(secondBuyerRes.status, 409);
+
+      // 4. Buyer attempts to purchase manually reserved SS-SC-004 -> rejected
+      const reservedPurchaseRes = await fetch(`${BASE_URL}/api/checkout/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer: {
+            name: 'Eager Collector',
+            email: 'collector@example.com',
+            phone: '+91 98765 43212',
+            address: 'Heritage Lane, Jaipur',
+            country: 'India'
+          },
+          items: [
+            { inventoryCode: 'SS-SC-004', purchaseType: 'original', quantity: 1 }
+          ],
+          clientRequestId: `REQ-RESERVED-${Date.now()}`
+        })
+      });
+      assert.ok(reservedPurchaseRes.status === 400 || reservedPurchaseRes.status === 409,
+        `Manually reserved piece purchase rejected with ${reservedPurchaseRes.status}`);
+
+      // 5. Simulate checkout hold expiration
+      const invHold = getInventory();
+      invHold['SS-PT-007'].reservedUntil = Date.now() - 5000; // expired
+      saveStoreTransaction({ inventory: invHold });
+
+      // Run cleanExpiredReservations
+      const cleanedInv = getInventory();
+      const cleanedOrders = getOrders();
+      cleanExpiredReservations(cleanedInv, cleanedOrders);
+      saveStoreTransaction({ inventory: cleanedInv, orders: cleanedOrders });
+
+      // Verify SS-PT-007 is restored to Available
+      const restoredRes = await fetch(`${BASE_URL}/api/inventory/SS-PT-007`);
+      assert.strictEqual(restoredRes.status, 200);
+      const restoredDataRaw = await restoredRes.json();
+      const restoredItem = restoredDataRaw.item || restoredDataRaw;
+      assert.strictEqual(restoredItem.status, 'Available');
+      assert.strictEqual(restoredItem.reservationType, null);
+      assert.strictEqual(restoredItem.originalQuantity, 1);
+
+      // Verify manual studio reservation SS-SC-004 was NOT released!
+      const studioRes = await fetch(`${BASE_URL}/api/inventory/SS-SC-004`);
+      assert.strictEqual(studioRes.status, 200);
+      const studioDataRaw = await studioRes.json();
+      const studioItem = studioDataRaw.item || studioDataRaw;
+      assert.strictEqual(studioItem.status, 'Reserved');
+      assert.strictEqual(studioItem.reservationType, 'manual_studio');
+      assert.strictEqual(studioItem.originalQuantity, 0);
+
+      reportTest(30, 'Temporary Checkout Hold vs Manual Reservation & Expiry Protection', true,
+        'Checkout hold prevents second buyer; expired hold releases to Available; manual reservation preserved');
     }
 
   } finally {

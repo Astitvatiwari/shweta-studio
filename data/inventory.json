@@ -71,7 +71,7 @@
     "medium": "Terracotta Clay",
     "price": "₹15,000",
     "initialAvailability": "Reserved",
-    "originalQuantity": 1,
+    "originalQuantity": 0,
     "status": "Reserved",
     "preparationTime": {
       "duration": "2 months",
@@ -81,7 +81,8 @@
     },
     "soldAt": null,
     "orderId": null,
-    "lastUpdated": "2026-10-25T18:35:35.040Z"
+    "lastUpdated": "2026-10-25T18:35:35.040Z",
+    "reservationType": "manual_studio"
   },
   "SS-SC-005": {
     "id": 5,
