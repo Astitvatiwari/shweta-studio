@@ -5,11 +5,9 @@
    Author: Shweta Studio
 ========================================== */
 
-import { getCart, clearCart, showToast } from './cart.js';
+import { getCart, clearCart, showToast, getApiBase } from './cart.js';
 
-const API_BASE = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-  ? (window.location.port === '3000' ? '' : `${window.location.protocol}//${window.location.hostname}:3000`)
-  : (typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://localhost:3000' : '');
+const API_BASE = getApiBase();
 
 let checkoutItems = [];
 let isDirectBuyNow = false;
@@ -97,7 +95,7 @@ async function loadDirectBuyNowItem(code, type) {
       inventoryCode: art.inventoryCode,
       title: art.title,
       slug: art.slug || '',
-      image: art.cardImage || `all work/scuptures/${art.title}/${art.title} 1.jpeg`,
+      image: art.image || art.cardImage || '',
       category: art.category,
       medium: art.medium,
       purchaseType: type,

@@ -175,7 +175,7 @@
 
         html += `
           <div style="background: #ffffff; border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: grid; grid-template-columns: 88px 1fr auto; gap: 20px; align-items: center;">
-            <img src="${item.image || ''}" alt="${item.title}" style="width: 88px; height: 88px; object-fit: contain; background: #fafafa; border: 1px solid var(--line); border-radius: 4px;">
+            <img src="${(window.resolveImagePath ? window.resolveImagePath(item.image) : item.image) || ''}" alt="${item.title}" onerror="window.handleCartImageError && window.handleCartImageError(this, '${item.inventoryCode}')" style="width: 88px; height: 88px; object-fit: contain; background: #fafafa; border: 1px solid var(--line); border-radius: 4px;">
             <div>
               <span class="cart-item-tag ${tagClass}">${tagLabel}</span>
               <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.35rem; font-weight: 500; margin: 4px 0 2px; color: var(--charcoal);">${item.title}</h3>
