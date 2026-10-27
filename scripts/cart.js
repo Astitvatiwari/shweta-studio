@@ -6,9 +6,19 @@
 ========================================== */
 
 const CART_STORAGE_KEY = 'shweta_studio_cart_v1';
-const API_BASE = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-  ? (window.location.port === '3000' ? '' : `${window.location.protocol}//${window.location.hostname}:3000`)
-  : (typeof window !== 'undefined' && window.location.protocol === 'file:' ? 'http://localhost:3000' : '');
+
+export function getApiBase() {
+  if (typeof window === 'undefined') return '';
+  const { protocol, hostname, port } = window.location;
+  if (protocol === 'file:') return 'http://localhost:3000';
+  const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0' || hostname === '[::1]' || hostname.endsWith('.local');
+  if (isLocal) {
+    return port === '3000' ? '' : `${protocol}//${hostname}:3000`;
+  }
+  return '';
+}
+
+const API_BASE = getApiBase();
 
 /**
  * Retrieve current cart items from localStorage.
@@ -52,6 +62,10 @@ export function addToCart(item, openDrawer = true) {
       i => i.inventoryCode === item.inventoryCode && i.purchaseType === 'original'
     );
     if (existingOriginal) {
+      if (item.image && existingOriginal.image !== item.image) {
+        existingOriginal.image = item.image;
+        saveCart(cart);
+      }
       showToast(`This unique 1-of-1 original ("${item.title}") is already in your cart.`, 'View Cart', () => openCartDrawer());
       return false;
     }
@@ -285,7 +299,7 @@ export function renderCartDrawerContent() {
 
     itemsHtml += `
       <div class="cart-item-card">
-        <img src="${imgPath}" alt="${item.title}" class="cart-item-thumb">
+        <img src="${imgPath}" alt="${item.title}" class="cart-item-thumb" onerror="window.handleCartImageError && window.handleCartImageError(this, '${item.inventoryCode}')">
         <div class="cart-item-details">
           <h4 class="cart-item-title">${item.title}</h4>
           <span class="cart-item-meta">${item.inventoryCode} &bull; ${item.medium || item.category}</span>
@@ -372,7 +386,7 @@ function getRelativeUrl(targetPath) {
   return isInPieces ? `../${targetPath}` : targetPath;
 }
 
-function resolveImagePath(imgPath) {
+export function resolveImagePath(imgPath) {
   if (!imgPath) return '';
   const isInPieces = typeof window !== 'undefined' && window.location.pathname.includes('/pieces/');
   if (imgPath.startsWith('http://') || imgPath.startsWith('https://')) return imgPath;
@@ -380,6 +394,34 @@ function resolveImagePath(imgPath) {
     return isInPieces ? imgPath : imgPath.substring(3);
   }
   return isInPieces ? `../${imgPath}` : imgPath;
+}
+
+/**
+ * Auto-heal cart thumbnail on image error.
+ * If an image fails to load (e.g. from legacy stale localStorage data),
+ * fetch authoritative artwork info from inventory API and update src + storage.
+ */
+export async function handleCartImageError(imgElem, inventoryCode) {
+  if (!imgElem || !inventoryCode || imgElem.dataset.healed) return;
+  imgElem.dataset.healed = 'true';
+  try {
+    const res = await fetch(`${API_BASE}/api/inventory/${encodeURIComponent(inventoryCode)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.success && data.item) {
+      const canonical = (data.item.image || data.item.cardImage || '').replace(/^\.\.\//, '');
+      if (canonical) {
+        const resolved = resolveImagePath(canonical);
+        imgElem.src = resolved;
+        const cart = getCart();
+        const target = cart.find(i => i.inventoryCode === inventoryCode);
+        if (target) {
+          target.image = canonical;
+          saveCart(cart);
+        }
+      }
+    }
+  } catch (_) {}
 }
 
 /**
@@ -445,11 +487,12 @@ export async function handleCardAddToCart(inventoryCode, purchaseType = 'origina
       }
     }
 
+    const canonicalImage = (art.image || art.cardImage || '').replace(/^\.\.\//, '');
     addToCart({
       inventoryCode: art.inventoryCode,
       title: art.title,
       slug: art.slug || '',
-      image: art.cardImage || resolveImagePath(art.image) || `all work/scuptures/${art.title}/${art.title} 1.jpeg`,
+      image: canonicalImage,
       category: art.category,
       medium: art.medium,
       purchaseType,
@@ -546,6 +589,8 @@ if (typeof window !== 'undefined') {
   window.showToast = showToast;
   window.handleCardAddToCart = handleCardAddToCart;
   window.handleCardBuyNow = handleCardBuyNow;
+  window.handleCartImageError = handleCartImageError;
+  window.resolveImagePath = resolveImagePath;
 
   document.addEventListener('DOMContentLoaded', () => {
     updateCartBadges();

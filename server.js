@@ -112,6 +112,9 @@ function sendJson(res, statusCode, data) {
   const jsonStr = JSON.stringify(data);
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'SAMEORIGIN',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
@@ -221,6 +224,9 @@ function serveStatic(req, res, pathname) {
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
     res.writeHead(200, {
       'Content-Type': contentType,
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'SAMEORIGIN',
       'Referrer-Policy': 'strict-origin-when-cross-origin'
@@ -252,8 +258,8 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  // 1. GET /api/inventory - Storefront sanitized inventory
-  if (req.method === 'GET' && pathname === '/api/inventory') {
+  // 1. GET /api/inventory - Storefront sanitized inventory (with or without trailing slash)
+  if (req.method === 'GET' && (pathname === '/api/inventory' || pathname === '/api/inventory/')) {
     const inv = getSanitizedInventory();
     return sendJson(res, 200, { success: true, inventory: inv });
   }
@@ -264,7 +270,11 @@ const server = http.createServer(async (req, res) => {
     try {
       rawCode = decodeURIComponent(rawCode);
     } catch (_) {}
-    const code = rawCode.trim().toUpperCase();
+    const code = rawCode.replace(/\/+$/, '').trim().toUpperCase();
+    if (!code) {
+      const inv = getSanitizedInventory();
+      return sendJson(res, 200, { success: true, inventory: inv });
+    }
     const item = getSanitizedArtworkInventory(code);
     if (!item) {
       return sendJson(res, 404, { success: false, error: `Artwork code ${code} not found.` });
@@ -715,6 +725,11 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
     }
     resetTestStore();
     return sendJson(res, 200, { success: true, message: 'Test database reset successfully.' });
+  }
+
+  // Fallback for unmatched API endpoints: return JSON 404, never serve static files
+  if (pathname.startsWith('/api/')) {
+    return sendJson(res, 404, { success: false, error: `API endpoint ${pathname} not found.` });
   }
 
   // Fallback: Static Files

@@ -139,6 +139,14 @@ export function sanitizeStorefrontItem(item) {
     : (isReserved ? 'manual_studio' : null);
   const originalQuantity = (item.status === 'Sold' || isReserved) ? 0 : (item.originalQuantity ?? 1);
 
+  let image = item.image || item.cardImage || null;
+  if (!image) {
+    const artDef = artworks.find(a => (a.inventoryCode || '').trim().toUpperCase() === (item.inventoryCode || '').trim().toUpperCase());
+    if (artDef) {
+      image = artDef.cardImage || (Array.isArray(artDef.images) && artDef.images[0]) || null;
+    }
+  }
+
   return {
     inventoryCode: item.inventoryCode,
     title: item.title,
@@ -149,6 +157,8 @@ export function sanitizeStorefrontItem(item) {
     status: item.status,
     reservationType,
     originalQuantity,
+    image,
+    cardImage: image,
     preparationTime: item.preparationTime
   };
 }
@@ -505,6 +515,8 @@ export function initializeInventory() {
       reservedUntil: null,
       reservedOrderId: null,
       preparationTime: prep,
+      image: art.cardImage || (Array.isArray(art.images) && art.images[0]) || null,
+      cardImage: art.cardImage || (Array.isArray(art.images) && art.images[0]) || null,
       soldAt: isSold ? new Date().toISOString() : null,
       orderId: null,
       lastUpdated: new Date().toISOString()
@@ -1020,11 +1032,13 @@ export function quoteCart({ customer, country, items }) {
  * Reset test database helper for clean automated test suites.
  */
 export function resetTestStore() {
-  if (fs.existsSync(INVENTORY_FILE)) {
-    fs.unlinkSync(INVENTORY_FILE);
+  const invFile = getInventoryFilePath();
+  const ordFile = getOrdersFilePath();
+  if (fs.existsSync(invFile)) {
+    fs.unlinkSync(invFile);
   }
-  if (fs.existsSync(ORDERS_FILE)) {
-    fs.unlinkSync(ORDERS_FILE);
+  if (fs.existsSync(ordFile)) {
+    fs.unlinkSync(ordFile);
   }
   return initializeInventory();
 }
