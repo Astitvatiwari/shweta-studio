@@ -11,7 +11,8 @@ async function testComplete() {
   }
 
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage();
+  const browserContext = await browser.newContext();
+  const page = await browserContext.newPage();
 
   const failedRequests = [];
   const consoleErrors = [];
@@ -229,7 +230,7 @@ async function testComplete() {
 
     // Finish checkout in a second tab in the same browser context. Keeping the
     // cancellation tab alive lets Chromium finish any remaining modal requests.
-    const checkoutSuccessPage = await page.context().newPage();
+    const checkoutSuccessPage = await browserContext.newPage();
     watchBrowserPage(checkoutSuccessPage);
     await checkoutSuccessPage.goto('http://localhost:3000/checkout.html', { waitUntil: 'networkidle' });
     await checkoutSuccessPage.locator('#btn-submit-order').click();
