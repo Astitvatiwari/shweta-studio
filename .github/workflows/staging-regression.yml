@@ -31,7 +31,6 @@ jobs:
       NODE_ENV: test
       PGSSLMODE: disable
       TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/shweta_studio_test
-      DATA_DIR: ${{ runner.temp }}/shweta-studio-browser-data
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,3 +41,5 @@ jobs:
       - run: npm run test:all
       - run: npx playwright install --with-deps chromium
       - run: node tests/test-complete-verification.js
+        env:
+          DATA_DIR: ${{ runner.temp }}/shweta-studio-browser-data
