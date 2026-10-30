@@ -107,7 +107,9 @@ try {
   assert.equal(safeAdminKeyMatch('wrong', 'right'), false);
   assert.equal(safeAdminKeyMatch('same-secret', 'same-secret'), true);
 
-  const pgConfig = postgresConnectionOptions('postgres://test:password@db.example.test/shweta_studio_test?sslmode=require', { production: true });
+  const pgConfig = postgresConnectionOptions('postgres://test:password@db.example.test/shweta_studio_test?sslmode=require', {
+    sslMode: 'require', production: true
+  });
   assert.equal(pgConfig.ssl.rejectUnauthorized, true, 'TLS certificate verification remains enabled when Render URL includes sslmode=require');
   assert.equal(new URL(pgConfig.connectionString).searchParams.has('sslmode'), false, 'connection-string SSL parameters cannot override explicit TLS policy');
   assert.throws(() => postgresConnectionOptions('postgres://test:password@localhost/shweta_studio_test', {
