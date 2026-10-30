@@ -67,7 +67,7 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "https://api.shwetastudio.com/api/:splat"
+  to = "https://shweta-studio-staging-api.onrender.com/api/:splat"
   status = 200
   force = true
   signed = "NETLIFY_PROXY_SIGNING_SECRET"
