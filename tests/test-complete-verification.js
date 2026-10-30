@@ -233,6 +233,9 @@ async function testComplete() {
     const checkoutSuccessPage = await browserContext.newPage();
     watchBrowserPage(checkoutSuccessPage);
     await checkoutSuccessPage.goto('http://localhost:3000/checkout.html', { waitUntil: 'networkidle' });
+    for (const [field, value] of Object.entries(customer)) {
+      await checkoutSuccessPage.locator(`#checkout-form [name="${field}"]`).fill(value);
+    }
     await checkoutSuccessPage.locator('#btn-submit-order').click();
     await checkoutSuccessPage.waitForURL(/order-confirmation\.html\?orderId=/, { timeout: 15000 });
     if (!checkoutSuccessPage.url().includes('orderId=')) {
