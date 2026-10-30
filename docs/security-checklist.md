@@ -22,7 +22,7 @@ Status reflects repository code and tests in this workspace. “Passed” means 
 | Database backups | Requires Configuration | No backup job or storage service was created. Configure automated daily offsite backups, alerting, retention, and a tested restore procedure for the selected database plan. |
 | Debug mode and errors | Passed in code/tests | Production errors are generic; health endpoint is minimal; production API mode is explicit. Validate hosted logs and disable any provider debug settings. |
 | Dependencies | Passed locally | `npm audit` reported zero known vulnerabilities for installed dependencies on 2026-10-30. Re-run in CI and before deployment. |
-| Full staging and browser suite | Requires Configuration | No staging services or secrets were created. Playwright regression could not launch because Chromium is not installed. Run the full browser suite and payment tests against staging using Razorpay test mode before production. |
+| CI database and Chromium browser regression | Passed in CI; staging Requires Configuration | GitHub Actions staging regression #9 passed on commit `201dfb8`, including PostgreSQL 16 concurrency/expiry checks and Playwright Chromium cart, thumbnail, cancellation, and demo-checkout checks. Razorpay-backed staging tests still require isolated staging services and test credentials. |
 
 ## Local evidence
 
@@ -30,5 +30,5 @@ Status reflects repository code and tests in this workspace. “Passed” means 
 - `npm run test:db-schema`: migration constraints and PostgreSQL adapter tests passed on PGlite, including reservations, idempotency, payment replay, release, and late-capture protection.
 - `npm run test:security`: production-mode API authorization, file exposure, CORS, content type, headers, and safe database-error checks passed.
 - `npm run test:db-concurrency`: skipped because no isolated PostgreSQL test URL or local PostgreSQL server is available. The test now covers concurrent reservation, same-request duplicate checkout, concurrent payment replay, expiry, and replacement-hold protection when run against real PostgreSQL.
-- Browser regression: not executed; Playwright Chromium download failed because the browser archive was truncated in this environment.
+- Browser regression: passed in GitHub Actions staging regression #9 on commit `201dfb8`; Chromium cart, thumbnail, cancellation, and demo-checkout checks completed. Staging-hosted browser/payment checks remain pending.
 - `npm audit`: zero known vulnerabilities reported at the time of review.
