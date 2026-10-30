@@ -16,24 +16,27 @@ async function testComplete() {
   const failedRequests = [];
   const consoleErrors = [];
 
-  page.on('console', msg => {
-    if (msg.type() === 'error') consoleErrors.push(msg.text());
-    console.log(`[BROWSER ${msg.type().toUpperCase()}]:`, msg.text());
-  });
+  const watchBrowserPage = target => {
+    target.on('console', msg => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+      console.log(`[BROWSER ${msg.type().toUpperCase()}]:`, msg.text());
+    });
 
-  page.on('requestfailed', req => {
-    if (!req.url().includes('google-analytics') && !req.url().includes('googletagmanager')) {
-      failedRequests.push({ url: req.url(), error: req.failure()?.errorText });
-      console.log(`[REQ FAILED]: ${req.url()} (${req.failure()?.errorText})`);
-    }
-  });
+    target.on('requestfailed', req => {
+      if (!req.url().includes('google-analytics') && !req.url().includes('googletagmanager')) {
+        failedRequests.push({ url: req.url(), error: req.failure()?.errorText });
+        console.log(`[REQ FAILED]: ${req.url()} (${req.failure()?.errorText})`);
+      }
+    });
 
-  page.on('response', res => {
-    if (res.status() >= 400 && !res.url().includes('google-analytics') && !res.url().includes('googletagmanager')) {
-      failedRequests.push({ url: res.url(), status: res.status() });
-      console.log(`[NET ERROR]: ${res.status()} ${res.url()}`);
-    }
-  });
+    target.on('response', res => {
+      if (res.status() >= 400 && !res.url().includes('google-analytics') && !res.url().includes('googletagmanager')) {
+        failedRequests.push({ url: res.url(), status: res.status() });
+        console.log(`[NET ERROR]: ${res.status()} ${res.url()}`);
+      }
+    });
+  };
+  watchBrowserPage(page);
 
   try {
     console.log('\n--- 1. Testing paintings.html ---');
@@ -224,11 +227,14 @@ async function testComplete() {
     }
     await page.unroute('**/api/checkout/create-order');
 
-    // The second submission uses the real demo checkout response and reaches
-    // the confirmation page. Demo mode never captures or verifies live funds.
-    await page.locator('#btn-submit-order').click();
-    await page.waitForURL(/order-confirmation\.html\?orderId=/, { timeout: 15000 });
-    if (!page.url().includes('orderId=')) {
+    // Finish checkout in a second tab in the same browser context. Keeping the
+    // cancellation tab alive lets Chromium finish any remaining modal requests.
+    const checkoutSuccessPage = await page.context().newPage();
+    watchBrowserPage(checkoutSuccessPage);
+    await checkoutSuccessPage.goto('http://localhost:3000/checkout.html', { waitUntil: 'networkidle' });
+    await checkoutSuccessPage.locator('#btn-submit-order').click();
+    await checkoutSuccessPage.waitForURL(/order-confirmation\.html\?orderId=/, { timeout: 15000 });
+    if (!checkoutSuccessPage.url().includes('orderId=')) {
       throw new Error('Successful demo checkout did not reach order confirmation.');
     }
     console.log('Checkout created a demo order, handled payment-window cancellation, and reached order confirmation.');
