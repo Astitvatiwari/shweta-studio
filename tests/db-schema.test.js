@@ -110,8 +110,17 @@ try {
   const pgConfig = postgresConnectionOptions('postgres://test:password@db.example.test/shweta_studio_test?sslmode=require', {
     sslMode: 'require', production: true
   });
-  assert.equal(pgConfig.ssl.rejectUnauthorized, true, 'TLS certificate verification remains enabled when Render URL includes sslmode=require');
+  assert.equal(pgConfig.ssl.rejectUnauthorized, true, 'external PostgreSQL hosts retain TLS certificate verification');
   assert.equal(new URL(pgConfig.connectionString).searchParams.has('sslmode'), false, 'connection-string SSL parameters cannot override explicit TLS policy');
+  const renderInternalConfig = postgresConnectionOptions('postgres://test:password@dpg-cvabc123-a:5432/shweta_studio?sslmode=require', {
+    sslMode: 'require', production: true
+  });
+  assert.notEqual(renderInternalConfig.ssl, false, 'Render internal PostgreSQL connections remain TLS-encrypted');
+  assert.equal(renderInternalConfig.ssl.rejectUnauthorized, false, 'self-signed certificate validation is bypassed only for Render internal PostgreSQL hosts');
+  const renderExternalConfig = postgresConnectionOptions('postgres://test:password@dpg-cvabc123-a.singapore-postgres.render.com/shweta_studio?sslmode=require', {
+    sslMode: 'require', production: true
+  });
+  assert.equal(renderExternalConfig.ssl.rejectUnauthorized, true, 'Render external PostgreSQL hosts retain certificate verification');
   assert.throws(() => postgresConnectionOptions('postgres://test:password@localhost/shweta_studio_test', {
     sslMode: 'disable', production: true
   }), /cannot be disabled in production/i);

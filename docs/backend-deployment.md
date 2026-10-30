@@ -18,7 +18,7 @@ The schema stores order/customer documents as JSONB to preserve current response
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | Managed PostgreSQL connection string; keep private. |
 | `MIGRATION_DATABASE_URL` | Yes for hosted migration command | DDL-capable managed PostgreSQL URL, separate from the runtime role. |
-| `PGSSLMODE` | Yes on hosted database | `require` uses TLS with certificate verification; `disable` is rejected in production and is only for local development. URL TLS parameters are normalized so they cannot weaken verification. |
+| `PGSSLMODE` | Yes on hosted database | `require` keeps TLS enabled. Certificate validation is relaxed only for Render's bare private `dpg-…` PostgreSQL hostnames because Render presents a self-signed certificate there; external hostnames retain normal certificate verification. `disable` is rejected in production. URL TLS parameters are normalized so they cannot override this policy. |
 | `PORT` | Supplied by Render | HTTP listener port. |
 | `NODE_ENV` | Yes | Use `production` on the hosted API. |
 | `CHECKOUT_RESERVATION_TTL_MS` | No | Checkout hold duration; defaults to 900000 ms. |
