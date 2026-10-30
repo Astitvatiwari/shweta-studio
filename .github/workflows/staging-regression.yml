@@ -43,3 +43,4 @@ jobs:
       - run: node tests/test-complete-verification.js
         env:
           DATA_DIR: ${{ runner.temp }}/shweta-studio-browser-data
+          ALLOW_DEMO_CHECKOUT: 'true'

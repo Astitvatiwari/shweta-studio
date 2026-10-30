@@ -165,7 +165,59 @@ async function testComplete() {
     }
     console.log(`All ${cartPageThumbs.length} cart.html thumbnails loaded visibly!`);
 
-    console.log('\n--- 6. Checking errors summary ---');
+    console.log('\n--- 6. Testing checkout cancellation and demo completion ---');
+    await page.goto('http://localhost:3000/checkout.html', { waitUntil: 'networkidle' });
+    const checkoutForm = page.locator('#checkout-form');
+    if (await checkoutForm.count() === 0) {
+      throw new Error('Checkout form did not load for the populated cart.');
+    }
+
+    const customer = {
+      name: 'Browser Regression',
+      email: 'browser-regression@example.test',
+      phone: '+919876543210',
+      address: '10 Test Street',
+      city: 'Agra',
+      state: 'Uttar Pradesh',
+      postalCode: '282001'
+    };
+    for (const [field, value] of Object.entries(customer)) {
+      await page.locator(`#checkout-form [name="${field}"]`).fill(value);
+    }
+
+    // Wrap the real demo order response with a test Razorpay order ID, then
+    // simulate closing the payment modal to exercise the actual cancel route.
+    await page.route('**/api/checkout/create-order', async route => {
+      const response = await route.fetch();
+      const data = await response.json();
+      if (!response.ok || !data.order?.orderId) {
+        await route.fulfill({ response, json: data });
+        return;
+      }
+      await route.fulfill({
+        response,
+        json: { ...data, razorpayOrderId: 'order_test_browser_cancel', keyId: 'rzp_test_browser' }
+      });
+    });
+    await page.evaluate(() => {
+      window.Razorpay = function (options) {
+        this.open = () => options.modal.ondismiss();
+      };
+    });
+    await page.locator('#btn-submit-order').click();
+    await page.locator('#checkout-status-message').getByText(/Payment window was closed/i).waitFor();
+    await page.unroute('**/api/checkout/create-order');
+
+    // The second submission uses the real demo checkout response and reaches
+    // the confirmation page. Demo mode never captures or verifies live funds.
+    await page.locator('#btn-submit-order').click();
+    await page.waitForURL(/order-confirmation\.html\?orderId=/, { timeout: 15000 });
+    if (!page.url().includes('orderId=')) {
+      throw new Error('Successful demo checkout did not reach order confirmation.');
+    }
+    console.log('Checkout created a demo order, handled payment-window cancellation, and reached order confirmation.');
+
+    console.log('\n--- 7. Checking errors summary ---');
     console.log('Failed network requests:', failedRequests);
     console.log('Browser console errors:', consoleErrors);
 
