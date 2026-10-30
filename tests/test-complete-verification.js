@@ -208,7 +208,15 @@ async function testComplete() {
         this.open = () => options.modal.ondismiss();
       };
     });
+    const cancellationResponsePromise = page.waitForResponse(
+      response => response.url().endsWith('/api/checkout/cancel-order'),
+      { timeout: 15000 }
+    );
     await page.locator('#btn-submit-order').click();
+    const cancellationResponse = await cancellationResponsePromise;
+    if (!cancellationResponse.ok()) {
+      throw new Error(`Payment cancellation API returned HTTP ${cancellationResponse.status()}.`);
+    }
     await page.locator('#checkout-status-message').getByText(/Payment window was closed/i).waitFor();
     const gatewayPrefill = await page.evaluate(() => window.__testRazorpayPrefill);
     if (gatewayPrefill.name !== customer.name || gatewayPrefill.email !== customer.email || gatewayPrefill.contact !== customer.phone) {
