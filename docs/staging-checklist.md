@@ -1,10 +1,28 @@
 # Staging verification checklist
 
-1. **CI evidence:** GitHub Actions regression #9 passed on `201dfb8`, including PostgreSQL 16 concurrency/expiry checks and Playwright Chromium cart, image, cancellation, and demo-checkout tests. Hosted Razorpay staging tests remain pending.
-2. **Render staging only:** Create the API as `shweta-studio-staging-api` from `fix/cart-inventory-verification`, in the same Singapore region as the already-created Free staging DB. Confirm both resources display Free/$0 before saving. Use `npm ci`, `npm run db:migrate && npm start`, `/healthz`; never apply production `render.yaml`.
-3. **Render variables:** Set `NODE_ENV=production`, `STORAGE_BACKEND=postgres`, `PGSSLMODE=require`, `STOREFRONT_ORIGINS=https://shweta-studio-staging.netlify.app` (replace with the actual Netlify origin if different), `NETLIFY_SITE_URL` to that same origin, `ALLOW_DEMO_CHECKOUT=false`, and `CHECKOUT_RESERVATION_TTL_MS=900000`. Set `DATABASE_URL` to the staging DB internal URL and `MIGRATION_DATABASE_URL` to its migration/owner URL. The database adapter keeps TLS on and applies Render's self-signed-certificate exception only to its bare internal `dpg-…` hostname; external URLs keep certificate verification. Store `ADMIN_API_KEY`, `NETLIFY_PROXY_SIGNING_SECRET`, and Razorpay **test-mode only** values (`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`) as Render secrets. Do not send secret values in chat or place them in Netlify's client bundle.
-4. **Netlify staging only:** Create a separate site named `shweta-studio-staging`, connected to the feature branch, with no production custom domain. Set its config file path to `netlify.staging.toml`; keep the existing production `netlify.toml` unchanged. The staging file proxies `/api/*` only to `https://shweta-studio-staging-api.onrender.com` and retains signed proxying. Set `NETLIFY_PROXY_SIGNING_SECRET` as a site runtime secret, matching Render; do not set database/admin/Razorpay secrets in Netlify. Use catalog-only build mode.
-5. **Verify before use:** Confirm Render's actual service URL matches the staging proxy target; if Render assigned another URL, update only `netlify.staging.toml`. Run migrations and `/healthz`, then check inventory availability, successful and expired reservations, browser cart/images/checkout, failed/cancelled payment, signature rejection, valid/invalid webhook, replay/idempotency, and no unauthenticated order access. Use synthetic data and Razorpay test mode only.
-6. **Isolation gates:** Render Free Postgres is temporary (30 days) and has no backups; Free services can sleep. Stop if either dashboard shows a paid plan, upgrade prompt, or charge. No production settings, merge, live payment, or production deployment is part of staging.
+## Phase 4 — staging deployment and storefront smoke test (complete)
 
-The Free staging PostgreSQL database has been created by the owner. This repository only prepares configuration; it does not provision Render or Netlify resources or configure secrets/webhooks.
+- The Netlify staging website is published, and the Render staging API is live. The owner reports that `/healthz` passes.
+- The owner manually verified that artworks `SS-PT-013` and `SS-PT-014` appear in the shopping bag with the correct images and prices.
+- The feature branch `fix/cart-inventory-verification` configures both the default `netlify.toml` and `netlify.staging.toml` to proxy `/api/*` only to `https://shweta-studio-staging-api.onrender.com`, with signed proxying. The production `main` branch and production site were not changed.
+- These checks do not establish successful Razorpay payment or webhook processing. Live payments have not been enabled.
+
+## Phase 5 — Razorpay sandbox checkout and payment verification (pending)
+
+Use synthetic customer/order data and Razorpay test credentials only. Do not use live keys or enable live transactions.
+
+- Exercise a successful sandbox checkout; verify server-authoritative amount/order creation, payment signature validation, persisted order, and inventory transition only after verified payment.
+- Exercise failed and cancelled payments; confirm reservation handling, clear recovery messaging, and no false paid status or unintended sale.
+- Verify reservation expiry and that a reserved/sold artwork cannot be purchased concurrently.
+- Send valid and invalid webhook signatures; confirm only verified events are applied.
+- Replay the same webhook/payment notification; confirm idempotency and no duplicate charge/order/inventory transition.
+- Verify unauthorized order access is denied and responses/logs do not expose secrets or customer data.
+- Run the staging browser and PostgreSQL regression suites. Record results and unresolved issues before any production launch planning.
+
+## Staging configuration and safety notes
+
+- Render staging API: `shweta-studio-staging-api`; use only the staging PostgreSQL database and Singapore internal database URL. Keep TLS enabled; the narrowly scoped internal Render certificate handling is documented in `docs/backend-deployment.md`.
+- Render secrets belong only in Render. Keep the matching `NETLIFY_PROXY_SIGNING_SECRET` in the staging Netlify site's runtime environment; do not put database, admin, or Razorpay secrets in the frontend.
+- The staging Netlify site must deploy `fix/cart-inventory-verification`. Both Netlify config files on this branch target the staging API; `main` retains the production configuration.
+- Use Free staging resources only. Stop if a dashboard requires a paid plan or shows a charge. Free Render Postgres is temporary and has no backups; do not use it for production data.
+- No production settings, merge, production deployment, or live-payment activation are part of Phase 4 or this Phase 5 handoff.
