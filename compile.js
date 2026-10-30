@@ -3,7 +3,8 @@ import path from 'path';
 import artworks from './artworks.js';
 import { getInventory, calculatePreparationTime } from './data/inventory-store.js';
 
-// Read persistent authoritative inventory store (does not reset sold items upon rebuild)
+// Netlify builds use the catalog-only adapter; local regression builds can still
+// read the isolated development store. Live availability is verified by the API.
 const inventoryStore = getInventory();
 
 const DETAIL_TEMPLATE_PATH = './pieces/detail_template.html';

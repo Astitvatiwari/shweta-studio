@@ -1,0 +1,49 @@
+# Blueprint definition only. Applying it provisions billable resources; do not apply
+# until staging database/service setup is approved and scheduled.
+services:
+  - type: web
+    name: shweta-studio-api
+    runtime: node
+    region: singapore
+    plan: starter
+    buildCommand: npm ci
+    startCommand: npm run db:migrate && npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: STORAGE_BACKEND
+        value: postgres
+      - key: PGSSLMODE
+        value: require
+      - key: STOREFRONT_ORIGINS
+        value: https://shwetastudio.com
+      - key: ALLOW_DEMO_CHECKOUT
+        value: "false"
+      - key: CHECKOUT_RESERVATION_TTL_MS
+        value: "900000"
+      - key: API_RATE_LIMIT_PER_PROXY
+        value: "600"
+      - key: DATABASE_URL
+        sync: false
+      - key: MIGRATION_DATABASE_URL
+        fromDatabase:
+          name: shweta-studio-staging
+          property: connectionString
+      - key: ADMIN_API_KEY
+        sync: false
+      - key: NETLIFY_PROXY_SIGNING_SECRET
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+
+databases:
+  - name: shweta-studio-staging
+    databaseName: shweta_studio
+    user: shweta_studio
+    region: singapore
+    plan: basic-256mb

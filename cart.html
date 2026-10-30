@@ -136,6 +136,15 @@
   <script type="module">
     import { getCart, removeFromCart, updateCartQuantity } from './scripts/cart.js';
 
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[character]);
+    const safeImageSource = value => {
+      const source = String(value || '');
+      if (/^https:\/\//i.test(source)) return source;
+      return !source || /^([a-z][a-z0-9+.-]*:|\/\/)/i.test(source) ? '' : source;
+    };
+
     function renderCartPage() {
       const container = document.getElementById('cart-page-items');
       const contentGrid = document.getElementById('cart-page-content');
@@ -167,7 +176,8 @@
       cart.forEach(item => {
         const isOriginal = item.purchaseType === 'original';
         const numPrice = parseFloat(String(item.unitPrice || item.priceInr || item.price || '0').replace(/[^0-9.]/g, '')) || 0;
-        const lineTotal = numPrice * (item.quantity || 1);
+        const quantity = Number.isInteger(Number(item.quantity)) ? Math.max(1, Math.min(20, Number(item.quantity))) : 1;
+        const lineTotal = numPrice * quantity;
         subtotal += lineTotal;
 
         const tagLabel = isOriginal ? '1-of-1 Physical Original' : (item.purchaseType === 'commission' ? 'Made-to-Order Customization' : 'Handmade Creation');
@@ -175,28 +185,28 @@
 
         html += `
           <div style="background: #ffffff; border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: grid; grid-template-columns: 88px 1fr auto; gap: 20px; align-items: center;">
-            <img src="${(window.resolveImagePath ? window.resolveImagePath(item.image) : item.image) || ''}" alt="${item.title}" onerror="window.handleCartImageError && window.handleCartImageError(this, '${item.inventoryCode}')" style="width: 88px; height: 88px; object-fit: contain; background: #fafafa; border: 1px solid var(--line); border-radius: 4px;">
+            <img src="${escapeHtml(safeImageSource(window.resolveImagePath ? window.resolveImagePath(item.image) : item.image))}" alt="${escapeHtml(item.title)}" data-cart-code="${escapeHtml(item.inventoryCode)}" style="width: 88px; height: 88px; object-fit: contain; background: #fafafa; border: 1px solid var(--line); border-radius: 4px;">
             <div>
               <span class="cart-item-tag ${tagClass}">${tagLabel}</span>
-              <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.35rem; font-weight: 500; margin: 4px 0 2px; color: var(--charcoal);">${item.title}</h3>
+              <h3 style="font-family: 'Cormorant Garamond', serif; font-size: 1.35rem; font-weight: 500; margin: 4px 0 2px; color: var(--charcoal);">${escapeHtml(item.title)}</h3>
               <div style="font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em;">
-                ${item.inventoryCode} &bull; ${item.medium || item.category}
+                ${escapeHtml(item.inventoryCode)} &bull; ${escapeHtml(item.medium || item.category)}
               </div>
-              ${item.customDimensions ? `<div style="font-size: 0.76rem; color: var(--muted); margin-top: 3px;">Dimensions: ${item.customDimensions}</div>` : ''}
-              ${item.preparationTime ? `<div style="font-size: 0.76rem; color: var(--sage); margin-top: 3px;">⏱ Preparation: ${item.preparationTime}</div>` : ''}
-              <div style="font-size: 1.05rem; font-weight: 600; color: var(--clay); margin-top: 6px;">${item.unitPrice || item.priceInr || item.price}</div>
+              ${item.customDimensions ? `<div style="font-size: 0.76rem; color: var(--muted); margin-top: 3px;">Dimensions: ${escapeHtml(item.customDimensions)}</div>` : ''}
+              ${item.preparationTime ? `<div style="font-size: 0.76rem; color: var(--sage); margin-top: 3px;">⏱ Preparation: ${escapeHtml(item.preparationTime)}</div>` : ''}
+              <div style="font-size: 1.05rem; font-weight: 600; color: var(--clay); margin-top: 6px;">${escapeHtml(item.unitPrice || item.priceInr || item.price)}</div>
             </div>
             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 12px;">
               ${isOriginal ? `
                 <span style="font-size: 0.78rem; font-weight: 600; color: var(--clay); background: #f4efe9; padding: 4px 10px; border-radius: 4px;">Qty: 1 (Original)</span>
               ` : `
                 <div class="qty-control">
-                  <button type="button" class="qty-btn" onclick="window.updateCartQuantity('${item.id}', ${item.quantity - 1}); renderCartPage();">&minus;</button>
-                  <span class="qty-num">${item.quantity}</span>
-                  <button type="button" class="qty-btn" onclick="window.updateCartQuantity('${item.id}', ${item.quantity + 1}); renderCartPage();" ${item.quantity >= (item.maxQuantity || 5) ? 'disabled' : ''}>&plus;</button>
+                  <button type="button" class="qty-btn" data-cart-action="decrease" data-cart-id="${escapeHtml(item.id)}">&minus;</button>
+                  <span class="qty-num">${quantity}</span>
+                  <button type="button" class="qty-btn" data-cart-action="increase" data-cart-id="${escapeHtml(item.id)}" ${quantity >= (Number(item.maxQuantity) || 5) ? 'disabled' : ''}>&plus;</button>
                 </div>
               `}
-              <button type="button" class="cart-item-remove" onclick="window.removeFromCart('${item.id}'); renderCartPage();" style="font-size: 0.78rem;">
+              <button type="button" class="cart-item-remove" data-cart-action="remove" data-cart-id="${escapeHtml(item.id)}" style="font-size: 0.78rem;">
                 Remove piece
               </button>
             </div>
@@ -205,6 +215,20 @@
       });
 
       container.innerHTML = html;
+      container.querySelectorAll('[data-cart-action]').forEach(button => {
+        button.addEventListener('click', () => {
+          const id = button.dataset.cartId;
+          if (button.dataset.cartAction === 'remove') removeFromCart(id);
+          else {
+            const item = getCart().find(entry => String(entry.id) === id);
+            if (item) updateCartQuantity(id, (Number(item.quantity) || 1) + (button.dataset.cartAction === 'increase' ? 1 : -1));
+          }
+          renderCartPage();
+        });
+      });
+      container.querySelectorAll('img[data-cart-code]').forEach(image => {
+        image.addEventListener('error', () => window.handleCartImageError?.(image, image.dataset.cartCode), { once: true });
+      });
 
       const formatted = `₹${subtotal.toLocaleString('en-IN')}`;
       if (subtotalEl) subtotalEl.innerText = formatted;

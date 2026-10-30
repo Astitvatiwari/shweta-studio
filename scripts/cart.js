@@ -7,6 +7,19 @@
 
 const CART_STORAGE_KEY = 'shweta_studio_cart_v1';
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
+}
+
+function safeImageSource(value) {
+  const source = String(value || '');
+  if (/^https:\/\//i.test(source)) return source;
+  if (!source || /^([a-z][a-z0-9+.-]*:|\/\/)/i.test(source)) return '';
+  return source;
+}
+
 export function getApiBase() {
   if (typeof window === 'undefined') return '';
   const { protocol, hostname, port } = window.location;
@@ -27,7 +40,8 @@ export function getCart() {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(CART_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter(item => item && typeof item === 'object' && !Array.isArray(item)) : [];
   } catch (err) {
     console.error('[CART] Failed to parse cart from storage:', err);
     return [];
@@ -295,35 +309,50 @@ export function renderCartDrawerContent() {
     const isOriginal = item.purchaseType === 'original';
     const tagClass = isOriginal ? 'cart-tag-original' : (item.purchaseType === 'commission' ? 'cart-tag-custom' : 'cart-tag-stocked');
     const tagLabel = isOriginal ? '1-of-1 Original' : (item.purchaseType === 'commission' ? 'Made-to-Order' : 'Handmade');
-    const imgPath = resolveImagePath(item.image);
+    const imgPath = escapeHtml(safeImageSource(resolveImagePath(item.image)));
+    const safeId = escapeHtml(item.id);
+    const quantity = Number.isInteger(Number(item.quantity)) ? Math.max(1, Math.min(20, Number(item.quantity))) : 1;
 
     itemsHtml += `
       <div class="cart-item-card">
-        <img src="${imgPath}" alt="${item.title}" class="cart-item-thumb" onerror="window.handleCartImageError && window.handleCartImageError(this, '${item.inventoryCode}')">
+        <img src="${imgPath}" alt="${escapeHtml(item.title)}" data-cart-code="${escapeHtml(item.inventoryCode)}" class="cart-item-thumb">
         <div class="cart-item-details">
-          <h4 class="cart-item-title">${item.title}</h4>
-          <span class="cart-item-meta">${item.inventoryCode} &bull; ${item.medium || item.category}</span>
+          <h4 class="cart-item-title">${escapeHtml(item.title)}</h4>
+          <span class="cart-item-meta">${escapeHtml(item.inventoryCode)} &bull; ${escapeHtml(item.medium || item.category)}</span>
           <span class="cart-item-tag ${tagClass}">${tagLabel}</span>
-          ${item.customDimensions ? `<span style="font-size: 0.72rem; color: var(--muted); margin-top: 2px;">${item.customDimensions}</span>` : ''}
-          <div class="cart-item-price">${item.unitPrice || item.priceInr || item.price}</div>
+          ${item.customDimensions ? `<span style="font-size: 0.72rem; color: var(--muted); margin-top: 2px;">${escapeHtml(item.customDimensions)}</span>` : ''}
+          <div class="cart-item-price">${escapeHtml(item.unitPrice || item.priceInr || item.price)}</div>
         </div>
         <div class="cart-item-controls">
           ${isOriginal ? `
             <span style="font-size: 0.75rem; font-weight: 600; color: var(--clay); background: #f4efe9; padding: 3px 8px; border-radius: 4px;" title="Unique physical 1-of-1 piece">Qty: 1</span>
           ` : `
             <div class="qty-control">
-              <button type="button" class="qty-btn" onclick="window.updateCartQuantity('${item.id}', ${item.quantity - 1})" aria-label="Decrease quantity">&minus;</button>
-              <span class="qty-num">${item.quantity}</span>
-              <button type="button" class="qty-btn" onclick="window.updateCartQuantity('${item.id}', ${item.quantity + 1})" aria-label="Increase quantity" ${item.quantity >= (item.maxQuantity || 5) ? 'disabled' : ''}>&plus;</button>
+              <button type="button" class="qty-btn" data-cart-action="decrease" data-cart-id="${safeId}" aria-label="Decrease quantity">&minus;</button>
+              <span class="qty-num">${quantity}</span>
+              <button type="button" class="qty-btn" data-cart-action="increase" data-cart-id="${safeId}" aria-label="Increase quantity" ${quantity >= (Number(item.maxQuantity) || 5) ? 'disabled' : ''}>&plus;</button>
             </div>
           `}
-          <button type="button" class="cart-item-remove" onclick="window.removeFromCart('${item.id}')">Remove</button>
+          <button type="button" class="cart-item-remove" data-cart-action="remove" data-cart-id="${safeId}">Remove</button>
         </div>
       </div>
     `;
   });
 
   body.innerHTML = itemsHtml;
+  body.querySelectorAll('[data-cart-action]').forEach(button => {
+    button.addEventListener('click', () => {
+      const id = button.dataset.cartId;
+      if (button.dataset.cartAction === 'remove') removeFromCart(id);
+      if (button.dataset.cartAction === 'decrease' || button.dataset.cartAction === 'increase') {
+        const item = getCart().find(entry => String(entry.id) === id);
+        if (item) updateCartQuantity(id, quantityFor(item) + (button.dataset.cartAction === 'increase' ? 1 : -1));
+      }
+    });
+  });
+  body.querySelectorAll('img[data-cart-code]').forEach(image => {
+    image.addEventListener('error', () => window.handleCartImageError?.(image, image.dataset.cartCode), { once: true });
+  });
 
   footer.innerHTML = `
     <div style="font-size: 0.76rem; color: var(--sage); line-height: 1.4; background: rgba(92, 99, 88, 0.08); padding: 8px 12px; border-radius: 4px;">
@@ -355,8 +384,8 @@ export function showToast(message, actionLabel, actionCallback) {
 
   toast.innerHTML = `
     <span class="studio-toast-icon">&#10003;</span>
-    <span>${message}</span>
-    ${actionLabel ? `<button type="button" class="studio-toast-btn" id="studio-toast-action">${actionLabel}</button>` : ''}
+    <span>${escapeHtml(message)}</span>
+    ${actionLabel ? `<button type="button" class="studio-toast-btn" id="studio-toast-action">${escapeHtml(actionLabel)}</button>` : ''}
   `;
 
   if (actionLabel && actionCallback) {
@@ -394,6 +423,11 @@ export function resolveImagePath(imgPath) {
     return isInPieces ? imgPath : imgPath.substring(3);
   }
   return isInPieces ? `../${imgPath}` : imgPath;
+}
+
+function quantityFor(item) {
+  const quantity = Number(item.quantity);
+  return Number.isInteger(quantity) ? Math.max(1, Math.min(20, quantity)) : 1;
 }
 
 /**

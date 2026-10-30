@@ -12,6 +12,19 @@ const API_BASE = getApiBase();
 let checkoutItems = [];
 let isDirectBuyNow = false;
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
+}
+
+function safeImageSource(value) {
+  const source = String(value || '');
+  if (/^https:\/\//i.test(source)) return source;
+  if (!source || /^([a-z][a-z0-9+.-]*:|\/\/)/i.test(source)) return '';
+  return source;
+}
+
 /**
  * Initialize checkout page.
  */
@@ -54,7 +67,7 @@ export async function initCheckoutPage() {
  */
 async function loadDirectBuyNowItem(code, type) {
   try {
-    const res = await fetch(`${API_BASE}/api/inventory/${code}`);
+    const res = await fetch(`${API_BASE}/api/inventory/${encodeURIComponent(code)}`);
     if (!res.ok) {
       renderEmptyCheckout('Unable to retrieve artwork details.');
       return;
@@ -140,7 +153,8 @@ export function renderCheckoutSummary() {
   checkoutItems.forEach(item => {
     // Numeric price resolution
     let numericPrice = parsePriceAmount(item, isDomestic);
-    const itemTotal = numericPrice * (item.quantity || 1);
+    const quantity = Number.isInteger(Number(item.quantity)) ? Math.max(1, Math.min(20, Number(item.quantity))) : 1;
+    const itemTotal = numericPrice * quantity;
     subtotal += itemTotal;
 
     const formattedItemPrice = isDomestic
@@ -149,13 +163,13 @@ export function renderCheckoutSummary() {
 
     itemsHtml += `
       <div class="checkout-item-line">
-        <img src="${resolveImg(item.image)}" alt="${item.title}" class="checkout-item-thumb">
+        <img src="${escapeHtml(safeImageSource(resolveImg(item.image)))}" alt="${escapeHtml(item.title)}" class="checkout-item-thumb">
         <div style="min-width: 0;">
-          <h4 style="font-family: 'Cormorant Garamond', serif; font-size: 1.1rem; margin: 0; color: var(--charcoal);">${item.title}</h4>
+          <h4 style="font-family: 'Cormorant Garamond', serif; font-size: 1.1rem; margin: 0; color: var(--charcoal);">${escapeHtml(item.title)}</h4>
           <span style="font-size: 0.72rem; color: var(--muted); text-transform: uppercase;">
-            ${item.inventoryCode} &bull; ${item.purchaseType === 'original' ? '1-of-1 Original' : 'Made-to-Order'}
+            ${escapeHtml(item.inventoryCode)} &bull; ${item.purchaseType === 'original' ? '1-of-1 Original' : 'Made-to-Order'}
           </span>
-          <div style="font-size: 0.78rem; color: var(--muted);">Qty: ${item.quantity || 1}</div>
+          <div style="font-size: 0.78rem; color: var(--muted);">Qty: ${quantity}</div>
         </div>
         <div style="font-weight: 600; color: var(--charcoal); font-size: 0.95rem;">${formattedItemPrice}</div>
       </div>
@@ -225,7 +239,7 @@ function renderEmptyCheckout(message = 'Your shopping bag is empty.') {
     container.innerHTML = `
       <div style="text-align: center; padding: 60px 20px; max-width: 500px; margin: 0 auto;">
         <h2 style="font-family: 'Cormorant Garamond', serif; font-size: 2.2rem; color: var(--charcoal); margin-bottom: 12px;">Checkout</h2>
-        <p style="color: var(--muted); line-height: 1.6; margin-bottom: 24px;">${message}</p>
+        <p style="color: var(--muted); line-height: 1.6; margin-bottom: 24px;">${escapeHtml(message)}</p>
         <a href="works.html" class="card-btn card-btn-primary" style="padding: 12px 24px; font-size: 0.86rem; display: inline-block;">
           Browse Artwork Collections
         </a>

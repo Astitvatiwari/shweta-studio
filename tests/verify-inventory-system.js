@@ -42,7 +42,7 @@ const {
 
 let serverInstance = null;
 let passedCount = 0;
-const totalCount = 30;
+const totalCount = 31;
 
 function reportTest(num, name, passed, details = '') {
   const symbol = passed ? '✅' : '❌';
@@ -86,7 +86,7 @@ async function runTests() {
           inventoryCode: testCode,
           customer: {
             name: 'Original Buyer',
-            email: 'orig@test.com',
+            email: 'orig@example.test',
             phone: '+91 9876543210',
             country: 'India',
             address: '10 Art Lane, New Delhi'
@@ -107,7 +107,7 @@ async function runTests() {
           inventoryCode: testCode,
           customer: {
             name: 'Second Buyer',
-            email: 'second@test.com',
+            email: 'second@example.test',
             country: 'India',
             address: '20 Gallery Rd'
           },
@@ -134,7 +134,7 @@ async function runTests() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           inventoryCode: soldCode,
-          customer: { name: 'Client A', email: 'a@test.com', country: 'India' }
+          customer: { name: 'Client A', email: 'a@example.test', country: 'India' }
         })
       });
       const commSoldData = await commSoldRes.json();
@@ -147,7 +147,7 @@ async function runTests() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           inventoryCode: availCode,
-          customer: { name: 'Client B', email: 'b@test.com', country: 'India' }
+          customer: { name: 'Client B', email: 'b@example.test', country: 'India' }
         })
       });
       const commAvailData = await commAvailRes.json();
@@ -173,7 +173,7 @@ async function runTests() {
         body: JSON.stringify({
           inventoryCode: testCode,
           price: '$1.00', // Malicious forged price
-          customer: { name: 'Tampering Attacker', email: 'attacker@test.com', country: 'USA' }
+          customer: { name: 'Tampering Attacker', email: 'attacker@example.test', country: 'USA' }
         })
       });
       const forgedData = await forgedRes.json();
@@ -197,7 +197,7 @@ async function runTests() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           inventoryCode: testCode,
-          customer: { name: 'Unverified Buyer', email: 'buyer@test.com', address: '123 Fake St' },
+          customer: { name: 'Unverified Buyer', email: 'buyer@example.test', address: '123 Fake St' },
           paymentVerification: { status: 'pending' }
         })
       });
@@ -220,7 +220,7 @@ async function runTests() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           inventoryCode: testCode,
-          customer: { name: 'Declined Buyer', email: 'fail@test.com', address: 'Declined Way' },
+          customer: { name: 'Declined Buyer', email: 'fail@example.test', address: 'Declined Way' },
           paymentVerification: { status: 'failed', method: 'declined_card' }
         })
       });
@@ -247,7 +247,7 @@ async function runTests() {
         body: JSON.stringify({
           inventoryCode: testCode,
           clientRequestId: requestId,
-          customer: { name: 'Idempotent Buyer', email: 'idem@test.com', address: '1 Idempotent Lane' },
+          customer: { name: 'Idempotent Buyer', email: 'idem@example.test', address: '1 Idempotent Lane' },
           paymentVerification: { status: 'verified' }
         })
       });
@@ -261,7 +261,7 @@ async function runTests() {
         body: JSON.stringify({
           inventoryCode: testCode,
           clientRequestId: requestId,
-          customer: { name: 'Idempotent Buyer', email: 'idem@test.com', address: '1 Idempotent Lane' },
+          customer: { name: 'Idempotent Buyer', email: 'idem@example.test', address: '1 Idempotent Lane' },
           paymentVerification: { status: 'verified' }
         })
       });
@@ -305,7 +305,7 @@ async function runTests() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           inventoryCode: 'NON-EXISTENT-SKU-999',
-          customer: { name: 'Test', email: 'test@test.com', address: 'Address' },
+          customer: { name: 'Test', email: 'test@example.test', address: 'Address' },
           paymentVerification: { status: 'verified' }
         })
       });
@@ -331,7 +331,7 @@ async function runTests() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           inventoryCode: 'SS-PT-001',
-          customer: { name: 'Big', email: 'big@test.com', address: bigAddress },
+          customer: { name: 'Big', email: 'big@example.test', address: bigAddress },
           paymentVerification: { status: 'verified' }
         })
       });
@@ -356,7 +356,7 @@ async function runTests() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             inventoryCode: testCode,
-            customer: { name, email: `${name.replace(/\s+/g, '').toLowerCase()}@test.com`, address: 'Simultaneous St' },
+            customer: { name, email: `${name.replace(/\s+/g, '').toLowerCase()}@example.test`, address: 'Simultaneous St' },
             paymentVerification: { status: 'verified' }
           })
         }).then(async r => ({ status: r.status, data: await r.json() }))
@@ -387,7 +387,7 @@ async function runTests() {
         body: JSON.stringify({
           inventoryCode: testCode,
           clientRequestId: commRequestId,
-          customer: { name: 'Dup Commission', email: 'dup@test.com' }
+          customer: { name: 'Dup Commission', email: 'dup@example.test' }
         })
       });
       const data1 = await res1.json();
@@ -399,7 +399,7 @@ async function runTests() {
         body: JSON.stringify({
           inventoryCode: testCode,
           clientRequestId: commRequestId,
-          customer: { name: 'Dup Commission', email: 'dup@test.com' }
+          customer: { name: 'Dup Commission', email: 'dup@example.test' }
         })
       });
       const data2 = await res2.json();
@@ -494,7 +494,7 @@ async function runTests() {
           requestedDimensions: '48 × 36 inches',
           desiredModifications: 'Monumental scale custom finish',
           isQuotationRequired: true,
-          customer: { name: 'Quote Patron', email: 'patron@test.com', country: 'Germany' }
+          customer: { name: 'Quote Patron', email: 'patron@example.test', country: 'Germany' }
         })
       });
       const commData = await commRes.json();
@@ -558,7 +558,7 @@ async function runTests() {
         body: JSON.stringify({
           customer: {
             name: 'Multi Item Collector',
-            email: 'multi@collector.com',
+            email: 'multi@example.test',
             phone: '+91 9999988888',
             country: 'India',
             address: '42 Gallery Road, Mumbai'
@@ -574,6 +574,7 @@ async function runTests() {
       assert.strictEqual(orderRes.status, 201);
       assert.strictEqual(orderData.success, true);
       assert.strictEqual(orderData.order.items.length, 2);
+      assert.equal(orderData.order.customer, undefined, 'public checkout responses must not expose stored customer details');
 
       // Verify painting is safely Reserved with checkout hold, NOT Sold yet
       const paintingInv = getArtworkInventory(testPainting);
@@ -596,6 +597,8 @@ async function runTests() {
         })
       });
       assert.strictEqual(verifyRes.status, 200);
+      const verifyData = await verifyRes.json();
+      assert.equal(verifyData.order.customer, undefined, 'public payment responses must not expose customer details');
       const postPayInv = getArtworkInventory(testPainting);
       assert.strictEqual(postPayInv.status, 'Sold');
       assert.strictEqual(postPayInv.originalQuantity, 0);
@@ -619,7 +622,7 @@ async function runTests() {
           body: JSON.stringify({
             customer: {
               name: `Concurrent Patron ${i}`,
-              email: `patron${i}@test.com`,
+              email: `patron${i}@example.test`,
               phone: '+91 9111122222',
               country: 'India',
               address: `Street ${i}, Bengaluru`
@@ -658,7 +661,7 @@ async function runTests() {
         body: JSON.stringify({
           customer: {
             name: 'Inquiry Bypass Attempt',
-            email: 'bypass@test.com',
+            email: 'bypass@example.test',
             phone: '+91 9123456789',
             country: 'India',
             address: '1 Bypass Way'
@@ -688,7 +691,7 @@ async function runTests() {
         body: JSON.stringify({
           customer: {
             name: 'Signature Patron',
-            email: 'sig@test.com',
+            email: 'sig@example.test',
             phone: '+91 9333344444',
             country: 'India',
             address: '10 Verification Road, Pune'
@@ -857,6 +860,20 @@ async function runTests() {
       assert.strictEqual(badQtyData.success, false);
       assert.ok(badQtyData.error.includes('Invalid quantity'));
 
+      const maliciousCodeRes = await fetch(`${BASE_URL}/api/checkout/quote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ country: 'India', items: [{ inventoryCode: '<img src=x onerror=alert(1)>', purchaseType: 'original' }] })
+      });
+      assert.strictEqual(maliciousCodeRes.status, 400, 'HTML payloads in artwork identifiers are rejected');
+
+      const malformedQtyRes = await fetch(`${BASE_URL}/api/checkout/quote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ country: 'India', items: [{ inventoryCode: 'SS-JW-001', purchaseType: 'stocked', quantity: '2x' }] })
+      });
+      assert.strictEqual(malformedQtyRes.status, 400, 'numeric prefixes and partial quantities are rejected');
+
       reportTest(22, 'Cart Quotation Rejects Unknown Items & Invalid Quantities (HTTP 400)', true,
         `Unknown SKU and invalid quantity rejected with HTTP 400 instead of being silently skipped`);
       assert.ok(true);
@@ -873,7 +890,7 @@ async function runTests() {
         body: JSON.stringify({
           customer: {
             name: 'Cancelled Patron',
-            email: 'cancel@test.com',
+            email: 'cancel@example.test',
             phone: '+91 9555566666',
             country: 'India',
             address: '5 Hold Lane'
@@ -951,7 +968,7 @@ async function runTests() {
         body: JSON.stringify({
           customer: {
             name: 'Mismatch Patron',
-            email: 'mismatch@test.com',
+            email: 'mismatch@example.test',
             phone: '+91 9777788888',
             country: 'India',
             address: '8 Currency Blvd'
@@ -1288,6 +1305,15 @@ async function runTests() {
 
       reportTest(30, 'Temporary Checkout Hold vs Manual Reservation & Expiry Protection', true,
         'Checkout hold prevents second buyer; expired hold releases to Available; manual reservation preserved');
+    }
+
+    // Test 31: Render liveness endpoint
+    {
+      const healthRes = await fetch(`${BASE_URL}/healthz`);
+      const health = await healthRes.json();
+      assert.strictEqual(healthRes.status, 200);
+      assert.deepStrictEqual(health, { success: true, status: 'ok' });
+      reportTest(31, 'Render health endpoint', true, 'GET /healthz returns a successful liveness response');
     }
 
   } finally {

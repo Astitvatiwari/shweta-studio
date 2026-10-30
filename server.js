@@ -4,6 +4,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import artworks from './artworks.js';
+import { safeAdminKeyMatch, safeClientError, verifyNetlifyProxySignature } from './security/request-security.js';
 import {
   getSanitizedInventory,
   getSanitizedArtworkInventory,
@@ -14,8 +15,8 @@ import {
   quoteCart,
   updateOrderPaymentStatus,
   cancelCheckoutReservation,
-  saveStoreTransaction,
-  resetTestStore
+  resetTestStore,
+  updateRazorpayOrderId
 } from './data/inventory-store.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -45,7 +46,8 @@ const ipRequestHistory = new Map();
 function checkRateLimit(ip) {
   const now = Date.now();
   const windowMs = 60 * 1000;
-  const limit = 60;
+  const configuredLimit = Number.parseInt(process.env.API_RATE_LIMIT_PER_PROXY || (process.env.NODE_ENV === 'production' ? '600' : '60'), 10);
+  const limit = Number.isInteger(configuredLimit) && configuredLimit > 0 ? configuredLimit : 60;
 
   let records = ipRequestHistory.get(ip) || [];
   records = records.filter(timestamp => now - timestamp < windowMs);
@@ -72,19 +74,23 @@ function checkRateLimit(ip) {
 function parseJsonBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
+    let oversized = false;
     req.on('data', chunk => {
+      if (oversized) return;
       body += chunk;
-      if (body.length > 50000) { // 50KB strict limit
-        req.destroy();
-        reject(new Error('Request payload exceeds permitted maximum size (50KB).'));
+      if (body.length > 50000) {
+        oversized = true;
+        body = '';
+        reject(safeClientError('Request payload exceeds permitted maximum size (50KB).', 413));
       }
     });
     req.on('end', () => {
+      if (oversized) return;
       if (!body.trim()) return resolve({});
       try {
         resolve(JSON.parse(body));
       } catch (err) {
-        reject(new Error('Malformed JSON payload.'));
+        reject(safeClientError('Malformed JSON payload.'));
       }
     });
     req.on('error', reject);
@@ -94,14 +100,18 @@ function parseJsonBody(req) {
 function parseRawBody(req) {
   return new Promise((resolve, reject) => {
     let raw = '';
+    let oversized = false;
     req.on('data', chunk => {
+      if (oversized) return;
       raw += chunk;
       if (raw.length > 50000) {
-        req.destroy();
-        reject(new Error('Request payload exceeds permitted maximum size (50KB).'));
+        oversized = true;
+        raw = '';
+        reject(safeClientError('Request payload exceeds permitted maximum size (50KB).', 413));
       }
     });
     req.on('end', () => {
+      if (oversized) return;
       resolve(raw);
     });
     req.on('error', reject);
@@ -116,36 +126,88 @@ function sendJson(res, statusCode, data) {
     'Pragma': 'no-cache',
     'Expires': '0',
     'X-Content-Type-Options': 'nosniff',
-    'X-Frame-Options': 'SAMEORIGIN',
+    'X-Frame-Options': 'DENY',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With'
+    'Content-Security-Policy': "default-src 'none'; frame-ancestors 'none'",
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
   });
   res.end(jsonStr);
+}
+
+function allowedOrigins() {
+  const configured = process.env.STOREFRONT_ORIGINS || 'https://shwetastudio.com';
+  const values = configured.split(',').map(value => value.trim()).filter(Boolean);
+  if (process.env.NODE_ENV === 'test') values.push(`http://localhost:${PORT}`);
+  return new Set(values);
+}
+
+function applySecurityHeaders(req, res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'self'; object-src 'none'; base-uri 'self'");
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins().has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  }
+}
+
+function handleRequestError(res, error) {
+  if (res.headersSent) return res.destroy();
+  if (error?.isSafeClientError) {
+    return sendJson(res, error.statusCode || 400, { success: false, error: error.message });
+  }
+  const code = typeof error?.code === 'string' ? error.code : 'internal';
+  console.error(`[API] Request failed (${code}).`);
+  return sendJson(res, 500, { success: false, error: 'Unable to process the request right now. Please try again.' });
+}
+
+function publicOrder(order, { keepCustomerName = false } = {}) {
+  if (!order || typeof order !== 'object') return order;
+  const { customer, ...safe } = order;
+  if (keepCustomerName && customer?.name) safe.customer = { name: customer.name };
+  return safe;
 }
 
 /**
  * Validates customer contact and delivery details.
  */
 function validateCustomer(customer, isOriginalOrder = false) {
-  if (!customer || typeof customer !== 'object') {
+  if (!customer || typeof customer !== 'object' || Array.isArray(customer)) {
     return 'Customer information object is required.';
   }
 
-  const { name, email, phone, country, address } = customer;
+  const { name, email, phone, country, address, city, state, postalCode } = customer;
 
   if (!name || typeof name !== 'string' || name.trim().length === 0 || name.length > 100) {
     return 'Customer name is required and must not exceed 100 characters.';
   }
 
-  if (!email || typeof email !== 'string' || email.length > 120) {
-    return 'Customer email is required and must not exceed 120 characters.';
+  if (!email || typeof email !== 'string' || email.length > 254) {
+    return 'Customer email is required and must not exceed 254 characters.';
   }
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email.trim())) {
     return 'Invalid email address format.';
+  }
+
+  const boundedText = [
+    ['name', name, 100], ['email', email, 254], ['phone', phone, 30],
+    ['country', country, 60], ['address', address, 500], ['city', city, 100],
+    ['state', state, 100], ['postalCode', postalCode, 20]
+  ];
+  for (const [field, value, max] of boundedText) {
+    if (value !== undefined && value !== null && (typeof value !== 'string' || value.length > max || /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(value))) {
+      return `Customer ${field} is invalid or too long.`;
+    }
   }
 
   if (country && (typeof country !== 'string' || country.length > 60)) {
@@ -182,6 +244,49 @@ function validateInventoryCode(code) {
   return null;
 }
 
+function validateClientRequestId(value) {
+  if (value == null || value === '') return null;
+  return typeof value === 'string' && value.length <= 80 && /^[A-Za-z0-9:_-]+$/.test(value)
+    ? null : 'clientRequestId has an invalid format.';
+}
+
+function validateCartItems(items, { quote = false } = {}) {
+  if (!Array.isArray(items) || items.length < 1 || items.length > 20) {
+    return 'Cart must contain between 1 and 20 items.';
+  }
+  const originalCodes = new Set();
+  for (const line of items) {
+    if (!line || typeof line !== 'object' || Array.isArray(line)) return 'Each cart item must be an object.';
+    const codeError = validateInventoryCode(line.inventoryCode);
+    if (codeError) {
+      if (quote && codeError.includes('not recognized')) {
+        const code = String(line.inventoryCode || '').trim().toUpperCase();
+        return `Unknown artwork code "${code}" in cart.`;
+      }
+      return codeError;
+    }
+    if (line.purchaseType !== undefined && !['original', 'commission', 'stocked'].includes(line.purchaseType)) return 'Invalid purchase type.';
+    if (line.purchaseType === 'original') {
+      const code = String(line.inventoryCode).trim().toUpperCase();
+      if (originalCodes.has(code)) return `Original artwork ${code} can appear only once in a cart.`;
+      originalCodes.add(code);
+      if (line.quantity !== undefined && line.quantity !== null && String(line.quantity).trim() !== '' && Number(line.quantity) !== 1) {
+        return 'An original artwork quantity must be 1.';
+      }
+    }
+    if (line.quantity !== undefined && line.quantity !== null && String(line.quantity).trim() !== '') {
+      const quantity = Number(line.quantity);
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) return 'Invalid quantity: item quantity must be an integer from 1 to 20.';
+    }
+    for (const field of ['customDimensions', 'customModifications']) {
+      if (line[field] !== undefined && (typeof line[field] !== 'string' || line[field].length > (field === 'customDimensions' ? 100 : 1000))) {
+        return `Invalid ${field} value.`;
+      }
+    }
+  }
+  return null;
+}
+
 function serveStatic(req, res, pathname) {
   // Reject null-byte injection attempts
   if (pathname.includes('\0')) {
@@ -189,13 +294,18 @@ function serveStatic(req, res, pathname) {
     return res.end('400 Bad Request');
   }
 
-  let safePath = path.normalize(decodeURIComponent(pathname)).replace(/^(\.\.[\/\\])+/, '');
-  if (safePath === '/' || safePath === '\\') safePath = '/index.html';
+  let decodedPath;
+  try {
+    decodedPath = decodeURIComponent(pathname);
+  } catch {
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+    return res.end('400 Bad Request');
+  }
+  const relativePath = decodedPath === '/' || decodedPath === '\\' ? 'index.html' : decodedPath.replace(/^[/\\]+/, '');
+  const filePath = path.resolve(__dirname, relativePath);
 
-  const filePath = path.join(__dirname, safePath);
-
-  // Security check: must stay within project root
-  if (!filePath.startsWith(__dirname)) {
+  // Must stay inside the project root, including same-prefix sibling paths.
+  if (filePath !== __dirname && !filePath.startsWith(`${__dirname}${path.sep}`)) {
     res.writeHead(403, { 'Content-Type': 'text/plain' });
     return res.end('403 Forbidden');
   }
@@ -235,21 +345,44 @@ function serveStatic(req, res, pathname) {
   });
 }
 
-const server = http.createServer(async (req, res) => {
+async function handleRequest(req, res) {
+  applySecurityHeaders(req, res);
   // Handle CORS Preflight
   if (req.method === 'OPTIONS') {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
-      'X-Content-Type-Options': 'nosniff'
-    });
+    const origin = req.headers.origin;
+    if (origin && !allowedOrigins().has(origin)) return sendJson(res, 403, { success: false, error: 'Origin is not allowed.' });
+    res.writeHead(204);
     return res.end();
   }
 
   const reqUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = reqUrl.pathname;
   const clientIp = req.socket.remoteAddress || '127.0.0.1';
+
+  const origin = req.headers.origin;
+  if (origin && !allowedOrigins().has(origin)) {
+    return sendJson(res, 403, { success: false, error: 'Origin is not allowed.' });
+  }
+
+  const isPaymentWebhook = req.method === 'POST' && pathname === '/api/payment/webhook';
+  if (process.env.NODE_ENV === 'production' && pathname.startsWith('/api/') && !isPaymentWebhook) {
+    const proxySecret = process.env.NETLIFY_PROXY_SIGNING_SECRET;
+    const validProxy = proxySecret && verifyNetlifyProxySignature(
+      req.headers['x-nf-sign'], proxySecret, { expectedSiteUrl: process.env.NETLIFY_SITE_URL || '' }
+    );
+    if (!validProxy) return sendJson(res, 403, { success: false, error: 'Request could not be authenticated.' });
+  }
+
+  if (pathname.startsWith('/api/') && req.method === 'POST' && !isPaymentWebhook) {
+    const contentType = req.headers['content-type'] || '';
+    if (!/^application\/(?:json|[a-z0-9.+-]+\+json)(?:\s*;|$)/i.test(contentType)) {
+      return sendJson(res, 415, { success: false, error: 'Content-Type must be application/json.' });
+    }
+  }
+
+  if (req.method === 'GET' && pathname === '/healthz') {
+    return sendJson(res, 200, { success: true, status: 'ok' });
+  }
 
   // Rate limit API endpoints
   if (pathname.startsWith('/api/')) {
@@ -260,7 +393,7 @@ const server = http.createServer(async (req, res) => {
 
   // 1. GET /api/inventory - Storefront sanitized inventory (with or without trailing slash)
   if (req.method === 'GET' && (pathname === '/api/inventory' || pathname === '/api/inventory/')) {
-    const inv = getSanitizedInventory();
+    const inv = await getSanitizedInventory();
     return sendJson(res, 200, { success: true, inventory: inv });
   }
 
@@ -272,10 +405,10 @@ const server = http.createServer(async (req, res) => {
     } catch (_) {}
     const code = rawCode.replace(/\/+$/, '').trim().toUpperCase();
     if (!code) {
-      const inv = getSanitizedInventory();
+      const inv = await getSanitizedInventory();
       return sendJson(res, 200, { success: true, inventory: inv });
     }
-    const item = getSanitizedArtworkInventory(code);
+    const item = await getSanitizedArtworkInventory(code);
     if (!item) {
       return sendJson(res, 404, { success: false, error: `Artwork code ${code} not found.` });
     }
@@ -302,6 +435,8 @@ const server = http.createServer(async (req, res) => {
       if (clientRequestId && (typeof clientRequestId !== 'string' || clientRequestId.length > 80)) {
         return sendJson(res, 400, { success: false, error: 'clientRequestId must not exceed 80 characters.' });
       }
+      const requestIdError = validateClientRequestId(clientRequestId);
+      if (requestIdError) return sendJson(res, 400, { success: false, error: requestIdError });
 
       const result = await purchaseOriginal({
         inventoryCode: inventoryCode.trim().toUpperCase(),
@@ -310,9 +445,9 @@ const server = http.createServer(async (req, res) => {
         clientRequestId
       });
 
-      return sendJson(res, result.statusCode, result);
+      return sendJson(res, result.statusCode, { ...result, order: publicOrder(result.order, { keepCustomerName: true }) });
     } catch (err) {
-      return sendJson(res, 400, { success: false, error: err.message });
+      return handleRequestError(res, err);
     }
   }
 
@@ -347,6 +482,8 @@ const server = http.createServer(async (req, res) => {
       if (desiredModifications && (typeof desiredModifications !== 'string' || desiredModifications.length > 1000)) {
         return sendJson(res, 400, { success: false, error: 'desiredModifications must not exceed 1000 characters.' });
       }
+      const requestIdError = validateClientRequestId(clientRequestId);
+      if (requestIdError) return sendJson(res, 400, { success: false, error: requestIdError });
 
       const result = await commissionArtwork({
         inventoryCode: inventoryCode.trim().toUpperCase(),
@@ -357,9 +494,9 @@ const server = http.createServer(async (req, res) => {
         clientRequestId
       });
 
-      return sendJson(res, result.statusCode, result);
+      return sendJson(res, result.statusCode, { ...result, order: publicOrder(result.order) });
     } catch (err) {
-      return sendJson(res, 400, { success: false, error: err.message });
+      return handleRequestError(res, err);
     }
   }
 
@@ -396,7 +533,6 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
     const errMsg = data?.error?.description || data?.error?.message || `Gateway HTTP ${response.status}`;
     const err = new Error(`Razorpay gateway order creation failed: ${errMsg}`);
     err.statusCode = response.status;
-    err.details = data;
     throw err;
   }
 
@@ -407,13 +543,18 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
   if (req.method === 'POST' && pathname === '/api/checkout/quote') {
     try {
       const body = await parseJsonBody(req);
-      const quote = quoteCart({ customer: body.customer, country: body.country, items: body.items });
+      if (body.country !== undefined && (typeof body.country !== 'string' || body.country.length > 60)) {
+        return sendJson(res, 400, { success: false, error: 'Country must be a string of at most 60 characters.' });
+      }
+      const itemError = validateCartItems(body.items, { quote: true });
+      if (itemError) return sendJson(res, 400, { success: false, error: itemError });
+      const quote = await quoteCart({ customer: body.customer, country: body.country, items: body.items });
       if (!quote.success) {
         return sendJson(res, quote.statusCode || 400, quote);
       }
       return sendJson(res, 200, quote);
     } catch (err) {
-      return sendJson(res, 400, { success: false, error: err.message });
+      return handleRequestError(res, err);
     }
   }
 
@@ -427,6 +568,13 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
       if (customerError) {
         return sendJson(res, 400, { success: false, error: customerError });
       }
+      const itemError = validateCartItems(items);
+      if (itemError) return sendJson(res, 400, { success: false, error: itemError });
+      if (paymentMethod !== undefined && !['studio_standard', 'razorpay'].includes(paymentMethod)) {
+        return sendJson(res, 400, { success: false, error: 'Invalid payment method.' });
+      }
+      const requestIdError = validateClientRequestId(clientRequestId);
+      if (requestIdError) return sendJson(res, 400, { success: false, error: requestIdError });
 
       if (!items || !Array.isArray(items) || items.length === 0) {
         return sendJson(res, 400, { success: false, error: 'At least one item is required in checkout order.' });
@@ -454,12 +602,24 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
         return sendJson(res, result.statusCode, result);
       }
 
-      const isDomestic = !customer.country || customer.country.toLowerCase().trim() === 'india';
-      const currency = isDomestic ? 'INR' : 'USD';
-      const amountPaise = Math.round(result.subtotalNumeric * 100);
+      const orderCurrency = result.order.currency || ((!customer.country || customer.country.toLowerCase().trim() === 'india') ? 'INR' : 'USD');
+      const isDomestic = orderCurrency === 'INR';
+      const currency = orderCurrency;
+      const orderSubtotal = result.order.subtotalNumeric ?? result.subtotalNumeric;
+      const amountPaise = Math.round(orderSubtotal * 100);
 
       // If Razorpay live gateway credentials configured: create real order on gateway
       if (hasGatewayCreds) {
+        if (result.order.razorpayOrderId) {
+          return sendJson(res, 201, {
+            success: true,
+            order: publicOrder(result.order),
+            razorpayOrderId: result.order.razorpayOrderId,
+            keyId: process.env.RAZORPAY_KEY_ID,
+            amount: amountPaise,
+            currency
+          });
+        }
         try {
           const rzpOrder = await createRazorpayGatewayOrder({
             amountPaise,
@@ -473,29 +633,35 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
           });
 
           // Associate official gateway order ID with our order record
-          result.order.razorpayOrderId = rzpOrder.id;
-          const orders = getOrders();
-          const target = orders.find(o => o.orderId === result.order.orderId);
-          if (target) {
-            target.razorpayOrderId = rzpOrder.id;
-            saveStoreTransaction({ orders });
-          }
+          result.order = await updateRazorpayOrderId(result.order.orderId, rzpOrder.id) || result.order;
+          const canonicalRazorpayOrderId = result.order.razorpayOrderId || rzpOrder.id;
 
           return sendJson(res, 201, {
             success: true,
-            order: result.order,
-            razorpayOrderId: rzpOrder.id,
+            order: publicOrder(result.order),
+            razorpayOrderId: canonicalRazorpayOrderId,
             keyId: process.env.RAZORPAY_KEY_ID,
-            amount: rzpOrder.amount || amountPaise,
-            currency: rzpOrder.currency || currency
+            amount: rzpOrder.id === canonicalRazorpayOrderId ? (rzpOrder.amount || amountPaise) : amountPaise,
+            currency: rzpOrder.id === canonicalRazorpayOrderId ? (rzpOrder.currency || currency) : currency
           });
         } catch (gatewayErr) {
-          console.error('[GATEWAY ERROR] Razorpay order creation failed:', gatewayErr.message);
+          console.error(`[GATEWAY] Razorpay order creation failed (HTTP ${gatewayErr.statusCode || 'unknown'}).`);
+          const latestOrder = (await getOrders()).find(order => order.orderId === result.order.orderId);
+          if (latestOrder?.razorpayOrderId) {
+            return sendJson(res, 201, {
+              success: true,
+              order: publicOrder(latestOrder),
+              razorpayOrderId: latestOrder.razorpayOrderId,
+              keyId: process.env.RAZORPAY_KEY_ID,
+              amount: amountPaise,
+              currency
+            });
+          }
           // Release reserved items immediately so inventory is not blocked
-          cancelCheckoutReservation(result.order.orderId);
+          await cancelCheckoutReservation(result.order.orderId);
           return sendJson(res, 502, {
             success: false,
-            error: `Payment gateway initialization failed: ${gatewayErr.message}. Artwork reservation released.`
+            error: 'Payment gateway initialization failed. Artwork reservation released; please retry or contact the studio.'
           });
         }
       }
@@ -504,14 +670,14 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
       return sendJson(res, 201, {
         success: true,
         demoMode: true,
-        order: result.order,
+        order: publicOrder(result.order),
         razorpayOrderId: null,
         amount: amountPaise,
         currency,
         message: 'Demo checkout mode active. Payment simulation only, real payments disabled.'
       });
     } catch (err) {
-      return sendJson(res, 400, { success: false, error: err.message });
+      return handleRequestError(res, err);
     }
   }
 
@@ -521,11 +687,11 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
       const body = await parseJsonBody(req);
       const { orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature } = body;
 
-      if (!orderId) {
-        return sendJson(res, 400, { success: false, error: 'orderId is required.' });
+      if (typeof orderId !== 'string' || !orderId || orderId.length > 100) {
+        return sendJson(res, 400, { success: false, error: 'A valid orderId is required.' });
       }
 
-      const orders = getOrders();
+      const orders = await getOrders();
       const order = orders.find(o => o.orderId === orderId);
       if (!order) {
         return sendJson(res, 404, { success: false, error: `Order ${orderId} not found.` });
@@ -543,14 +709,14 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
           });
         }
 
-        const updateRes = updateOrderPaymentStatus(orderId, {
+        const updateRes = await updateOrderPaymentStatus(orderId, {
           paymentStatus: 'demo_simulated',
           razorpayPaymentId: razorpayPaymentId || `demo_pay_${Date.now()}`
         });
         return sendJson(res, 200, {
           success: true,
           demoMode: true,
-          order: updateRes.order,
+          order: publicOrder(updateRes.order),
           message: 'Demo checkout payment simulation recorded (staging/test only). Artwork not marked sold.'
         });
       }
@@ -558,6 +724,10 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
       // Live verification: require authentic fields
       if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
         return sendJson(res, 400, { success: false, error: 'Missing required Razorpay payment verification fields.' });
+      }
+      if (![razorpayOrderId, razorpayPaymentId].every(value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(value)) ||
+          typeof razorpaySignature !== 'string' || !/^[a-f0-9]{64}$/i.test(razorpaySignature)) {
+        return sendJson(res, 400, { success: false, error: 'Invalid Razorpay payment verification fields.' });
       }
 
       // If order has an assigned razorpayOrderId, ensure it matches
@@ -577,7 +747,7 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
         return sendJson(res, 400, { success: false, error: 'Invalid payment signature. Verification failed.' });
       }
 
-      const updateRes = updateOrderPaymentStatus(orderId, {
+      const updateRes = await updateOrderPaymentStatus(orderId, {
         paymentStatus: 'confirmed',
         razorpayPaymentId
       });
@@ -588,11 +758,11 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
 
       return sendJson(res, 200, {
         success: true,
-        order: updateRes.order,
+        order: publicOrder(updateRes.order),
         message: 'Payment verified successfully. Artwork acquisition confirmed.'
       });
     } catch (err) {
-      return sendJson(res, 400, { success: false, error: err.message });
+      return handleRequestError(res, err);
     }
   }
 
@@ -608,7 +778,7 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
       }
 
       const signature = req.headers['x-razorpay-signature'];
-      if (!signature) {
+      if (typeof signature !== 'string' || !/^[a-f0-9]{64}$/i.test(signature)) {
         return sendJson(res, 400, { success: false, error: 'Missing webhook signature.' });
       }
 
@@ -632,46 +802,77 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
         return sendJson(res, 400, { success: false, error: 'Invalid JSON payload in webhook.' });
       }
 
+      const eventId = req.headers['x-razorpay-event-id'] || null;
+      if (eventId !== null && (typeof eventId !== 'string' || !/^[A-Za-z0-9._:-]{1,200}$/.test(eventId))) {
+        return sendJson(res, 400, { success: false, error: 'Invalid webhook event identifier.' });
+      }
+
       if (body.event === 'payment.captured' && body.payload?.payment?.entity) {
         const p = body.payload.payment.entity;
-        const orders = getOrders();
+        if (typeof p.id !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(p.id)) {
+          return sendJson(res, 400, { success: false, error: 'Invalid payment identifier in webhook.' });
+        }
+        const orders = await getOrders();
         const order = orders.find(o => o.orderId === p.notes?.orderId || (o.razorpayOrderId && o.razorpayOrderId === p.order_id));
         if (order) {
+          if ((order.razorpayOrderId && order.razorpayOrderId !== p.order_id) ||
+              (process.env.NODE_ENV === 'production' && !order.razorpayOrderId)) {
+            return sendJson(res, 400, { success: false, error: 'Payment gateway order does not match the studio order.' });
+          }
           // Amount & Currency verification
           const orderCurrency = (order.currency || 'INR').toUpperCase();
-          if (p.currency && p.currency.toUpperCase() !== orderCurrency) {
+          if (typeof p.currency !== 'string' || p.currency.toUpperCase() !== orderCurrency) {
             return sendJson(res, 400, {
               success: false,
-              error: `Currency mismatch: payment currency "${p.currency}" does not match order currency "${orderCurrency}".`
+              error: `Currency mismatch: payment currency "${String(p.currency || 'missing')}" does not match order currency "${orderCurrency}".`
             });
           }
 
           const numTotal = parseFloat(String(order.total || order.subtotal || '0').replace(/[^0-9.]/g, '')) || 0;
           const expectedAmountPaise = Math.round(numTotal * 100);
-          if (typeof p.amount === 'number' && p.amount !== expectedAmountPaise) {
+          if (!Number.isSafeInteger(p.amount) || p.amount !== expectedAmountPaise) {
             return sendJson(res, 400, {
               success: false,
               error: `Amount mismatch: payment amount ${p.amount} does not match order amount ${expectedAmountPaise}.`
             });
           }
 
-          const updateRes = updateOrderPaymentStatus(order.orderId, {
+          const updateRes = await updateOrderPaymentStatus(order.orderId, {
             paymentStatus: 'confirmed',
-            razorpayPaymentId: p.id
+            razorpayPaymentId: p.id,
+            eventId,
+            eventType: body.event
           });
 
-          return sendJson(res, 200, { success: true, order: updateRes.order, message: 'Payment captured and verified.' });
+          if (!updateRes.success) {
+            // A real capture can arrive after the checkout hold expires. Acknowledge
+            // the authenticated event to stop retries, but leave the order for review.
+            console.warn(`[PAYMENT] Captured payment requires reconciliation for order ${order.orderId}.`);
+            return sendJson(res, 200, {
+              success: false,
+              received: true,
+              requiresReview: true,
+              error: 'Payment was received but needs studio review.'
+            });
+          }
+
+          return sendJson(res, 200, { success: true, order: publicOrder(updateRes.order), message: 'Payment captured and verified.' });
         }
       }
 
       if (body.event === 'payment.failed' && body.payload?.payment?.entity) {
         const p = body.payload.payment.entity;
-        const orders = getOrders();
+        if (typeof p.id !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(p.id)) {
+          return sendJson(res, 400, { success: false, error: 'Invalid payment identifier in webhook.' });
+        }
+        const orders = await getOrders();
         const order = orders.find(o => o.orderId === p.notes?.orderId || (o.razorpayOrderId && o.razorpayOrderId === p.order_id));
         if (order) {
-          updateOrderPaymentStatus(order.orderId, {
+          await updateOrderPaymentStatus(order.orderId, {
             paymentStatus: 'failed',
-            razorpayPaymentId: p.id
+            razorpayPaymentId: p.id,
+            eventId,
+            eventType: body.event
           });
         }
         return sendJson(res, 200, { success: true, message: 'Payment failure recorded and hold released.' });
@@ -679,7 +880,7 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
 
       return sendJson(res, 200, { success: true, received: true });
     } catch (err) {
-      return sendJson(res, 400, { success: false, error: err.message });
+      return handleRequestError(res, err);
     }
   }
 
@@ -691,10 +892,10 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
       if (!orderId) {
         return sendJson(res, 400, { success: false, error: 'orderId is required.' });
       }
-      const result = cancelCheckoutReservation(orderId);
-      return sendJson(res, result.success ? 200 : result.statusCode || 400, result);
+      const result = await cancelCheckoutReservation(orderId);
+      return sendJson(res, result.success ? 200 : result.statusCode || 400, { ...result, order: publicOrder(result.order) });
     } catch (err) {
-      return sendJson(res, 400, { success: false, error: err.message });
+      return handleRequestError(res, err);
     }
   }
 
@@ -704,14 +905,15 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
     const adminKey = process.env.ADMIN_API_KEY;
 
     // Strict access control: If ADMIN_API_KEY is unset or token doesn't match, deny access
-    if (!adminKey || authHeader !== `Bearer ${adminKey}`) {
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    if (!adminKey || !safeAdminKeyMatch(token, adminKey)) {
       return sendJson(res, 403, {
         success: false,
         error: 'Unauthorized access to order records. Administrative authentication is required.'
       });
     }
 
-    const orders = getOrders();
+    const orders = await getOrders();
     return sendJson(res, 200, { success: true, count: orders.length, orders });
   }
 
@@ -723,17 +925,27 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
         error: 'Test reset endpoint is disabled outside automated test environments.'
       });
     }
-    resetTestStore();
+    await resetTestStore();
     return sendJson(res, 200, { success: true, message: 'Test database reset successfully.' });
   }
 
   // Fallback for unmatched API endpoints: return JSON 404, never serve static files
   if (pathname.startsWith('/api/')) {
-    return sendJson(res, 404, { success: false, error: `API endpoint ${pathname} not found.` });
+    return sendJson(res, 404, { success: false, error: 'API endpoint not found.' });
   }
 
-  // Fallback: Static Files
+  // Static storefront content is served by Netlify. The Render API must never
+  // expose source files, JSON stores, environment examples, or repository files.
+  if (process.env.NODE_ENV === 'production') {
+    return sendJson(res, 404, { success: false, error: 'Not found.' });
+  }
+
+  // Fallback: Static Files for local development only
   serveStatic(req, res, pathname);
+}
+
+const server = http.createServer((req, res) => {
+  handleRequest(req, res).catch(error => handleRequestError(res, error));
 });
 
 export function startServer(port = PORT) {

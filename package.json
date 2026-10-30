@@ -3,9 +3,18 @@
   "scripts": {
     "build": "node compile.js",
     "start": "node server.js",
-    "test": "node tests/verify-inventory-system.js"
+    "test": "node tests/verify-inventory-system.js",
+    "db:migrate": "node scripts/db-migrate.js",
+    "test:db-schema": "node tests/db-schema.test.js",
+    "test:db-concurrency": "node tests/postgres-concurrency.test.js",
+    "test:security": "node tests/security-regression.test.js",
+    "test:all": "npm test && npm run test:db-schema && npm run test:security && npm run test:db-concurrency"
   },
   "dependencies": {
+    "pg": "^8.23.1",
     "playwright": "^1.61.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.13"
   }
 }
