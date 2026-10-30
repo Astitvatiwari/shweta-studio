@@ -307,7 +307,9 @@ async function handleCheckoutSubmit(event) {
 
       // If Razorpay order returned with active live credentials
       if (data.razorpayOrderId && window.Razorpay) {
-        launchRazorpayModal(data, order);
+        // Public order responses intentionally omit customer details. Reuse the
+        // customer's own submitted form values for gateway prefill instead.
+        launchRazorpayModal(data, order, payload.customer);
         return;
       }
 
@@ -345,7 +347,7 @@ async function handleCheckoutSubmit(event) {
 /**
  * Launch Razorpay standard checkout popup when keyId is present.
  */
-function launchRazorpayModal(checkoutData, order) {
+function launchRazorpayModal(checkoutData, order, customer) {
   const options = {
     key: checkoutData.keyId,
     amount: checkoutData.amount,
@@ -394,9 +396,9 @@ function launchRazorpayModal(checkoutData, order) {
       }
     },
     prefill: {
-      name: order.customer.name,
-      email: order.customer.email,
-      contact: order.customer.phone
+      name: customer?.name || '',
+      email: customer?.email || '',
+      contact: customer?.phone || ''
     },
     theme: {
       color: '#b45f34'

@@ -194,6 +194,9 @@ async function testComplete() {
         await route.fulfill({ response, json: data });
         return;
       }
+      if (Object.hasOwn(data.order, 'customer')) {
+        throw new Error('Public checkout response exposed customer details.');
+      }
       await route.fulfill({
         response,
         json: { ...data, razorpayOrderId: 'order_test_browser_cancel', keyId: 'rzp_test_browser' }
@@ -201,11 +204,16 @@ async function testComplete() {
     });
     await page.evaluate(() => {
       window.Razorpay = function (options) {
+        window.__testRazorpayPrefill = options.prefill;
         this.open = () => options.modal.ondismiss();
       };
     });
     await page.locator('#btn-submit-order').click();
     await page.locator('#checkout-status-message').getByText(/Payment window was closed/i).waitFor();
+    const gatewayPrefill = await page.evaluate(() => window.__testRazorpayPrefill);
+    if (gatewayPrefill.name !== customer.name || gatewayPrefill.email !== customer.email || gatewayPrefill.contact !== customer.phone) {
+      throw new Error('Razorpay prefill did not use the checkout form details.');
+    }
     await page.unroute('**/api/checkout/create-order');
 
     // The second submission uses the real demo checkout response and reaches
