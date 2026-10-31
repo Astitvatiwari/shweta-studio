@@ -102,9 +102,21 @@ export async function createRazorpayGatewayOrder({ amountPaise, currency, receip
   return data;
 }
 
-export function getRazorpayFailureLogFields(error) {
+export function getRazorpayFailureLogFields(error, stage = 'gateway_create') {
   const status = Number.isInteger(error?.statusCode) ? error.statusCode : 'none';
-  const category = /^[a-z_]+$/.test(error?.gatewayCategory || '') ? error.gatewayCategory : 'unexpected';
-  const code = /^[A-Z0-9_]+$/.test(error?.gatewayErrorCode || '') ? error.gatewayErrorCode : 'none';
-  return `category=${category} status=${status} code=${code}`;
+  const allowedStage = ['gateway_create', 'persist_order_id', 'recover_order_id'].includes(stage) ? stage : 'unknown';
+  let category = /^[a-z_]+$/.test(error?.gatewayCategory || '') ? error.gatewayCategory : 'unexpected';
+  let code = /^[A-Z0-9_]+$/.test(error?.gatewayErrorCode || '') ? error.gatewayErrorCode : 'none';
+  if (allowedStage === 'persist_order_id' || allowedStage === 'recover_order_id') {
+    category = 'database_persistence';
+    code = /^[0-9A-Z]{5}$/.test(error?.code || '') ? error.code : 'none';
+  }
+  return `stage=${allowedStage} category=${category} status=${status} code=${code}`;
+}
+
+export async function resolveRazorpayOrderFailure({ gatewayOrderReceived, latestOrder, releaseReservation }) {
+  if (latestOrder?.razorpayOrderId) return { action: 'reuse_persisted_order', order: latestOrder };
+  if (gatewayOrderReceived) return { action: 'retain_reservation' };
+  const released = await releaseReservation();
+  return { action: released?.success ? 'reservation_released' : 'release_unconfirmed' };
 }

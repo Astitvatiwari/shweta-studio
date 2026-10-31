@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { getRazorpayFailureLogFields, resolveRazorpayOrderFailure } from '../payments/razorpay-gateway.js';
 
 const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'shweta-gateway-test-'));
 process.env.NODE_ENV = 'test';
@@ -10,6 +11,40 @@ process.env.ALLOW_DEMO_CHECKOUT = 'false';
 process.env.RAZORPAY_KEY_ID = 'rzp_test_synthetic';
 process.env.RAZORPAY_KEY_SECRET = 'synthetic_secret_for_test_only';
 process.env.RAZORPAY_API_URL = '';
+
+const persistenceError = Object.assign(new Error('SQL detail must never be logged'), { code: '42P08' });
+assert.equal(getRazorpayFailureLogFields(persistenceError, 'persist_order_id'),
+  'stage=persist_order_id category=database_persistence status=none code=42P08');
+assert.equal(getRazorpayFailureLogFields(persistenceError, 'recover_order_id'),
+  'stage=recover_order_id category=database_persistence status=none code=42P08');
+let releaseCalled = false;
+const heldOrder = { paymentStatus: 'payment_pending' };
+const retained = await resolveRazorpayOrderFailure({
+  gatewayOrderReceived: true,
+  latestOrder: heldOrder,
+  releaseReservation: async () => { releaseCalled = true; return { success: true }; }
+});
+assert.equal(retained.action, 'retain_reservation', 'a received Razorpay order keeps its inventory reservation on DB failure');
+assert.equal(releaseCalled, false, 'the post-gateway persistence failure never calls reservation release');
+assert.equal(heldOrder.paymentStatus, 'payment_pending', 'gateway persistence failure never marks an order paid');
+const released = await resolveRazorpayOrderFailure({
+  gatewayOrderReceived: false,
+  latestOrder: null,
+  releaseReservation: async () => ({ success: true })
+});
+assert.equal(released.action, 'reservation_released', 'pre-order gateway failures release only after successful cancellation');
+const releaseUnconfirmed = await resolveRazorpayOrderFailure({
+  gatewayOrderReceived: false,
+  latestOrder: null,
+  releaseReservation: async () => ({ success: false })
+});
+assert.equal(releaseUnconfirmed.action, 'release_unconfirmed', 'a failed cancellation is never reported as released');
+const reused = await resolveRazorpayOrderFailure({
+  gatewayOrderReceived: true,
+  latestOrder: { razorpayOrderId: 'order_test_existing' },
+  releaseReservation: async () => { throw new Error('must not release'); }
+});
+assert.equal(reused.action, 'reuse_persisted_order', 'a concurrently persisted reference is safely recovered');
 
 const { startServer } = await import('../server.js');
 const { getArtworkInventory, getOrders, resetTestStore } = await import('../data/inventory-store.js');

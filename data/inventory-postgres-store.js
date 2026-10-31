@@ -472,8 +472,8 @@ export function createPostgresStore({ query = pool.query.bind(pool), transaction
   }
 
   async function updateRazorpayOrderId(orderId, razorpayOrderId) {
-    const { rows } = await query(`UPDATE orders SET razorpay_order_id=$2,
-      order_data=order_data || jsonb_build_object('razorpayOrderId',$2), updated_at=now()
+    const { rows } = await query(`UPDATE orders SET razorpay_order_id=$2::text,
+      order_data=order_data || jsonb_build_object('razorpayOrderId',$2::text), updated_at=now()
       WHERE order_id=$1 AND razorpay_order_id IS NULL RETURNING *`, [orderId, razorpayOrderId]);
     if (!rows.length) {
       const existing = await query('SELECT * FROM orders WHERE order_id=$1', [orderId]);

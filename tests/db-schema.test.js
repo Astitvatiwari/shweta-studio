@@ -66,6 +66,15 @@ try {
   assert.equal(blocked.success, false);
   assert.equal(blocked.statusCode, 409, 'a second order cannot reserve a held original');
 
+  const linkedGatewayOrder = await store.updateRazorpayOrderId(created.order.orderId, 'order_schema_test_1');
+  assert.equal(linkedGatewayOrder.razorpayOrderId, 'order_schema_test_1',
+    'Razorpay order references persist through the migrated PostgreSQL column');
+  const noOverwrite = await store.updateRazorpayOrderId(created.order.orderId, 'order_schema_test_2');
+  assert.equal(noOverwrite.razorpayOrderId, 'order_schema_test_1',
+    'an existing provider order reference is never overwritten on retry');
+  const persistedRow = await db.query('SELECT razorpay_order_id FROM orders WHERE order_id=$1', [created.order.orderId]);
+  assert.equal(persistedRow.rows[0].razorpay_order_id, 'order_schema_test_1');
+
   const paid = await store.updateOrderPaymentStatus(created.order.orderId, {
     paymentStatus: 'confirmed', razorpayPaymentId: 'pay_test_1'
   });

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import artworks from './artworks.js';
 import { safeAdminKeyMatch, safeClientError, verifyNetlifyProxySignature } from './security/request-security.js';
 import { recordPaymentFailure } from './payments/payment-failure-webhook.js';
-import { createRazorpayGatewayOrder, getRazorpayFailureLogFields } from './payments/razorpay-gateway.js';
+import { createRazorpayGatewayOrder, getRazorpayFailureLogFields, resolveRazorpayOrderFailure } from './payments/razorpay-gateway.js';
 import {
   getSanitizedInventory,
   getSanitizedArtworkInventory,
@@ -583,6 +583,8 @@ async function handleRequest(req, res) {
             currency
           });
         }
+        let gatewayStage = 'gateway_create';
+        let gatewayOrderReceived = false;
         try {
           const rzpOrder = await createRazorpayGatewayOrder({
             amountPaise,
@@ -594,9 +596,18 @@ async function handleRequest(req, res) {
               customerEmail: customer.email
             }
           });
+          gatewayOrderReceived = true;
 
-          // Associate official gateway order ID with our order record
-          result.order = await updateRazorpayOrderId(result.order.orderId, rzpOrder.id) || result.order;
+          // Persist the provider reference before returning it to the browser.
+          // Never let a customer pay against an order ID not associated in our DB.
+          gatewayStage = 'persist_order_id';
+          const persistedOrder = await updateRazorpayOrderId(result.order.orderId, rzpOrder.id);
+          if (!persistedOrder?.razorpayOrderId) {
+            const persistenceError = new Error('Gateway order reference was not confirmed in storage.');
+            persistenceError.gatewayCategory = 'persistence';
+            throw persistenceError;
+          }
+          result.order = persistedOrder;
           const canonicalRazorpayOrderId = result.order.razorpayOrderId || rzpOrder.id;
 
           return sendJson(res, 201, {
@@ -608,9 +619,20 @@ async function handleRequest(req, res) {
             currency: rzpOrder.id === canonicalRazorpayOrderId ? (rzpOrder.currency || currency) : currency
           });
         } catch (gatewayErr) {
-          console.error(`[GATEWAY] Razorpay order creation failed (${getRazorpayFailureLogFields(gatewayErr)}).`);
-          const latestOrder = (await getOrders()).find(order => order.orderId === result.order.orderId);
-          if (latestOrder?.razorpayOrderId) {
+          console.error(`[GATEWAY] Checkout initialization failed (${getRazorpayFailureLogFields(gatewayErr, gatewayStage)} gateway_order_received=${gatewayOrderReceived}).`);
+          let latestOrder = null;
+          try {
+            latestOrder = (await getOrders()).find(order => order.orderId === result.order.orderId) || null;
+          } catch (recoveryErr) {
+            console.error(`[GATEWAY] Order reference recovery failed (${getRazorpayFailureLogFields(recoveryErr, 'recover_order_id')}).`);
+          }
+          const recovery = await resolveRazorpayOrderFailure({
+            gatewayOrderReceived,
+            latestOrder,
+            releaseReservation: () => cancelCheckoutReservation(result.order.orderId)
+          });
+          if (recovery.action === 'reuse_persisted_order') {
+            latestOrder = recovery.order;
             return sendJson(res, 201, {
               success: true,
               order: publicOrder(latestOrder),
@@ -620,8 +642,21 @@ async function handleRequest(req, res) {
               currency
             });
           }
-          // Release reserved items immediately so inventory is not blocked
-          await cancelCheckoutReservation(result.order.orderId);
+          if (recovery.action === 'retain_reservation') {
+            // Razorpay returned a real order, but its reference could not be
+            // confirmed in PostgreSQL. Keep the inventory hold through its TTL
+            // rather than making an order potentially payable artwork available.
+            return sendJson(res, 503, {
+              success: false,
+              error: 'Payment setup could not be confirmed. The artwork is held temporarily while checkout is reconciled; please contact the studio before retrying.'
+            });
+          }
+          if (recovery.action === 'release_unconfirmed') {
+            return sendJson(res, 503, {
+              success: false,
+              error: 'Payment setup failed and the reservation status could not be confirmed. Please contact the studio before retrying.'
+            });
+          }
           return sendJson(res, 502, {
             success: false,
             error: 'Payment gateway initialization failed. Artwork reservation released; please retry or contact the studio.'
