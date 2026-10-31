@@ -16,10 +16,19 @@ async function testComplete() {
 
   const failedRequests = [];
   const consoleErrors = [];
+  let expectedUnavailableOrder404ConsoleError = false;
 
   const watchBrowserPage = target => {
     target.on('console', msg => {
-      if (msg.type() === 'error') consoleErrors.push(msg.text());
+      if (msg.type() === 'error') {
+        const expectedUnavailableOrder404 = expectedUnavailableOrder404ConsoleError &&
+          /Failed to load resource: the server responded with a status of 404/i.test(msg.text());
+        if (expectedUnavailableOrder404) {
+          expectedUnavailableOrder404ConsoleError = false;
+        } else {
+          consoleErrors.push(msg.text());
+        }
+      }
       console.log(`[BROWSER ${msg.type().toUpperCase()}]:`, msg.text());
     });
 
@@ -31,7 +40,9 @@ async function testComplete() {
     });
 
     target.on('response', res => {
-      const expectedMissingOrder = res.status() === 404 && /\/api\/checkout\/order-status(?:\?|$)/.test(res.url());
+      const expectedMissingOrder = res.status() === 404 &&
+        /\/api\/checkout\/order-status\?orderId=ORD-BROWSER-MISSING(?:&|$)/.test(res.url());
+      if (expectedMissingOrder) expectedUnavailableOrder404ConsoleError = true;
       if (res.status() >= 400 && !expectedMissingOrder && !res.url().includes('google-analytics') && !res.url().includes('googletagmanager')) {
         failedRequests.push({ url: res.url(), status: res.status() });
         console.log(`[NET ERROR]: ${res.status()} ${res.url()}`);
@@ -278,6 +289,7 @@ async function testComplete() {
       }
     }
     confirmationResponse = { status: 404, body: { success: false, error: 'Order status is unavailable.' } };
+    expectedUnavailableOrder404ConsoleError = false;
     await checkoutSuccessPage.goto('http://localhost:3000/order-confirmation.html?orderId=ORD-BROWSER-MISSING', { waitUntil: 'networkidle' });
     await checkoutSuccessPage.getByRole('heading', { name: 'Order Not Available' }).waitFor();
     if (await checkoutSuccessPage.locator('#confirm-receipt').isVisible()) {
