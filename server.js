@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import artworks from './artworks.js';
 import { safeAdminKeyMatch, safeClientError, verifyNetlifyProxySignature } from './security/request-security.js';
+import { recordPaymentFailure } from './payments/payment-failure-webhook.js';
 import {
   getSanitizedInventory,
   getSanitizedArtworkInventory,
@@ -868,14 +869,18 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
         const orders = await getOrders();
         const order = orders.find(o => o.orderId === p.notes?.orderId || (o.razorpayOrderId && o.razorpayOrderId === p.order_id));
         if (order) {
-          await updateOrderPaymentStatus(order.orderId, {
-            paymentStatus: 'failed',
+          const result = await recordPaymentFailure({
+            updateOrderPaymentStatus,
+            orderId: order.orderId,
             razorpayPaymentId: p.id,
-            eventId,
-            eventType: body.event
+            eventId
           });
+          return sendJson(res, result.statusCode, result.body);
         }
-        return sendJson(res, 200, { success: true, message: 'Payment failure recorded and hold released.' });
+        return sendJson(res, 503, {
+          success: false,
+          error: 'Payment order could not be matched. Webhook delivery should be retried.'
+        });
       }
 
       return sendJson(res, 200, { success: true, received: true });
