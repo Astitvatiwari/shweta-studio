@@ -238,11 +238,11 @@ async function testComplete() {
       await checkoutSuccessPage.locator(`#checkout-form [name="${field}"]`).fill(value);
     }
     await checkoutSuccessPage.locator('#btn-submit-order').click();
-    await checkoutSuccessPage.waitForURL(/order-confirmation\.html\?orderId=/, { timeout: 15000 });
-    if (!checkoutSuccessPage.url().includes('orderId=')) {
-      throw new Error('Successful demo checkout did not reach order confirmation.');
-    }
     await checkoutSuccessPage.getByRole('heading', { name: 'Test Checkout' }).waitFor();
+    const confirmationUrl = new URL(checkoutSuccessPage.url());
+    if (!confirmationUrl.pathname.endsWith('/order-confirmation.html') || confirmationUrl.search) {
+      throw new Error('Demo checkout did not reach confirmation with the order reference removed from browser history.');
+    }
     if (await checkoutSuccessPage.locator('#confirm-receipt').isVisible()) {
       throw new Error('A simulated checkout incorrectly displayed the confirmed receipt.');
     }
