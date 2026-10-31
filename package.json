@@ -9,8 +9,9 @@
     "test:db-concurrency": "node tests/postgres-concurrency.test.js",
     "test:security": "node tests/security-regression.test.js",
     "test:payment-webhook": "node tests/payment-failure-webhook.test.js",
+    "test:razorpay-gateway": "node tests/razorpay-order-creation.test.js",
     "test:staging-config": "node tests/staging-config.test.js",
-    "test:all": "npm test && npm run test:db-schema && npm run test:security && npm run test:payment-webhook && npm run test:staging-config && npm run test:db-concurrency"
+    "test:all": "npm test && npm run test:db-schema && npm run test:security && npm run test:payment-webhook && npm run test:razorpay-gateway && npm run test:staging-config && npm run test:db-concurrency"
   },
   "dependencies": {
     "pg": "^8.23.1",

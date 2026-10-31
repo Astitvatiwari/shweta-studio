@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import artworks from './artworks.js';
 import { safeAdminKeyMatch, safeClientError, verifyNetlifyProxySignature } from './security/request-security.js';
 import { recordPaymentFailure } from './payments/payment-failure-webhook.js';
+import { createRazorpayGatewayOrder, getRazorpayFailureLogFields } from './payments/razorpay-gateway.js';
 import {
   getSanitizedInventory,
   getSanitizedArtworkInventory,
@@ -501,45 +502,6 @@ async function handleRequest(req, res) {
     }
   }
 
-/**
- * Create a genuine order via Razorpay's official server-side API.
- * Never constructs synthetic fake order IDs.
- */
-async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, notes }) {
-  const keyId = process.env.RAZORPAY_KEY_ID;
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
-  if (!keyId || !keySecret) {
-    throw new Error('Razorpay credentials not configured');
-  }
-
-  const endpoint = process.env.RAZORPAY_API_URL || 'https://api.razorpay.com/v1/orders';
-  const authHeader = 'Basic ' + Buffer.from(`${keyId}:${keySecret}`).toString('base64');
-
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Authorization': authHeader,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      amount: amountPaise,
-      currency: currency.toUpperCase(),
-      receipt: String(receipt).substring(0, 40),
-      notes: notes || {}
-    })
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    const errMsg = data?.error?.description || data?.error?.message || `Gateway HTTP ${response.status}`;
-    const err = new Error(`Razorpay gateway order creation failed: ${errMsg}`);
-    err.statusCode = response.status;
-    throw err;
-  }
-
-  return data;
-}
-
   // 5. POST /api/checkout/quote - Authoritative Cart Quotation
   if (req.method === 'POST' && pathname === '/api/checkout/quote') {
     try {
@@ -646,7 +608,7 @@ async function createRazorpayGatewayOrder({ amountPaise, currency, receipt, note
             currency: rzpOrder.id === canonicalRazorpayOrderId ? (rzpOrder.currency || currency) : currency
           });
         } catch (gatewayErr) {
-          console.error(`[GATEWAY] Razorpay order creation failed (HTTP ${gatewayErr.statusCode || 'unknown'}).`);
+          console.error(`[GATEWAY] Razorpay order creation failed (${getRazorpayFailureLogFields(gatewayErr)}).`);
           const latestOrder = (await getOrders()).find(order => order.orderId === result.order.orderId);
           if (latestOrder?.razorpayOrderId) {
             return sendJson(res, 201, {
