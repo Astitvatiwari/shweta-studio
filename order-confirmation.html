@@ -16,6 +16,7 @@
   <meta name="description" content="Acquisition confirmation and official receipt for your authentic artwork order from Shweta Studio.">
   <link rel="canonical" href="https://shwetastudio.com/order-confirmation.html">
   <meta name="robots" content="noindex, follow">
+  <meta name="referrer" content="no-referrer">
 
   <!-- Fonts & Styles -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -67,26 +68,26 @@
       <div style="max-width: 680px; margin: 0 auto; width: 100%;">
         <!-- Success Banner -->
         <div style="text-align: center; margin-bottom: 28px;">
-          <div style="display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 50%; background: rgba(92, 99, 88, 0.15); color: var(--sage); font-size: 1.8rem; margin-bottom: 14px;">
+          <div id="confirm-status-icon" style="display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 50%; background: rgba(92, 99, 88, 0.15); color: var(--sage); font-size: 1.8rem; margin-bottom: 14px;">
             &check;
           </div>
-          <h1 style="font-family: 'Cormorant Garamond', serif; font-size: 2.4rem; font-weight: 500; margin: 0 0 8px; color: var(--charcoal);">
-            Acquisition Confirmed
+          <h1 id="confirm-status-title" style="font-family: 'Cormorant Garamond', serif; font-size: 2.4rem; font-weight: 500; margin: 0 0 8px; color: var(--charcoal);" aria-live="polite">
+            Checking payment status…
           </h1>
-          <p style="color: var(--muted); font-size: 0.95rem; margin: 0; line-height: 1.6;">
-            Thank you for supporting authentic artistic creation. Your acquisition order has been successfully recorded in the studio ledger.
+          <p id="confirm-status-description" style="color: var(--muted); font-size: 0.95rem; margin: 0; line-height: 1.6;" role="status">
+            Please wait while the studio verifies your order.
           </p>
         </div>
 
         <!-- Receipt Card -->
-        <div style="background: #ffffff; border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow);">
+        <div id="confirm-receipt" hidden style="background: #ffffff; border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow);">
           <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 18px;">
             <div>
               <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; display: block; margin-bottom: 2px;">Studio Order Reference</span>
               <strong id="confirm-order-id" style="font-family: monospace; font-size: 1.15rem; color: var(--clay);">Loading...</strong>
             </div>
             <span style="font-size: 0.76rem; background: rgba(92, 99, 88, 0.12); color: var(--sage); padding: 4px 10px; border-radius: 4px; font-weight: 600;">
-              Acquisition Registered
+              <span id="confirm-order-status">Verified Payment</span>
             </span>
           </div>
 
@@ -150,17 +151,75 @@
 
   <script type="module" src="scripts/main.js"></script>
   <script type="module">
-    document.addEventListener('DOMContentLoaded', () => {
+    import { getApiBase } from './scripts/cart.js';
+
+    document.addEventListener('DOMContentLoaded', async () => {
       const params = new URLSearchParams(window.location.search);
-      const orderId = params.get('orderId') || `ORD-${Date.now().toString(36).toUpperCase()}`;
-
+      const orderId = params.get('orderId') || '';
+      const title = document.getElementById('confirm-status-title');
+      const description = document.getElementById('confirm-status-description');
+      const receipt = document.getElementById('confirm-receipt');
       const orderEl = document.getElementById('confirm-order-id');
-      if (orderEl) orderEl.innerText = orderId;
-
       const nameEl = document.getElementById('confirm-customer-name');
-      const countryEl = document.getElementById('confirm-customer-country');
-      if (nameEl) nameEl.innerText = 'Valued Art Collector';
-      if (countryEl) countryEl.innerText = 'Insured Delivery Destination';
+      const destinationEl = document.getElementById('confirm-customer-country');
+      const statusEl = document.getElementById('confirm-order-status');
+
+      // Remove the order reference from browser history and subsequent analytics
+      // page views as soon as it has been captured for this status request.
+      window.history.replaceState({}, document.title, window.location.pathname);
+
+      const states = {
+        confirmed: ['Acquisition Confirmed', 'Your payment has been verified by the studio.'],
+        payment_pending: ['Payment Pending', 'Your payment is still being processed. This order is not confirmed yet.'],
+        pending: ['Payment Pending', 'Your payment is still being processed. This order is not confirmed yet.'],
+        failed: ['Payment Not Completed', 'The payment was not completed. No acquisition has been confirmed.'],
+        cancelled: ['Checkout Cancelled', 'Checkout was cancelled. No acquisition has been confirmed.'],
+        expired: ['Reservation Expired', 'The artwork reservation expired before payment was confirmed.'],
+        demo_simulated: ['Test Checkout', 'This was a test or demo checkout. No real payment or acquisition was confirmed.']
+      };
+
+      if (!orderId) {
+        title.textContent = 'Order Not Available';
+        description.textContent = 'A valid order reference was not provided. No acquisition has been confirmed.';
+        return;
+      }
+
+      try {
+        const response = await fetch(`${getApiBase()}/api/checkout/order-status?orderId=${encodeURIComponent(orderId)}`, {
+          cache: 'no-store',
+          headers: { Accept: 'application/json' }
+        });
+        if (response.status === 404) {
+          title.textContent = 'Order Not Available';
+          description.textContent = 'The studio could not locate this order reference. No acquisition has been confirmed.';
+          return;
+        }
+        if (!response.ok) throw new Error('status_unavailable');
+        const result = await response.json();
+        if (!result.success || typeof result.status !== 'string') throw new Error('invalid_status_response');
+
+        const state = states[result.status];
+        if (!state) {
+          title.textContent = 'Confirmation Unavailable';
+          description.textContent = 'The studio could not verify this order status. Please contact the studio for assistance.';
+          return;
+        }
+
+        title.textContent = state[0];
+        description.textContent = state[1];
+        if (result.status === 'confirmed') {
+          title.textContent = 'Acquisition Confirmed';
+          description.textContent = 'Thank you for supporting authentic artistic creation. Your payment has been verified by the studio.';
+          orderEl.textContent = orderId;
+          nameEl.textContent = 'Valued Art Collector';
+          destinationEl.textContent = 'Provided at checkout';
+          statusEl.textContent = 'Verified Payment';
+          receipt.hidden = false;
+        }
+      } catch (_) {
+        title.textContent = 'Confirmation Unavailable';
+        description.textContent = 'The studio could not verify this order right now. No acquisition is confirmed until payment verification succeeds.';
+      }
     });
   </script>
 </body>

@@ -340,7 +340,7 @@ export function createPostgresStore({ query = pool.query.bind(pool), transaction
             country: customer?.country || 'India', address: customer?.address || '', city: customer?.city || '',
             state: customer?.state || '', postalCode: customer?.postalCode || '' },
           paymentStatus: 'payment_pending', reservationExpiresAt: expires.toISOString(), paymentMethod: paymentMethod || 'studio_standard',
-          shippingNotice: domestic ? 'Complimentary insured studio delivery across India included.' : 'Insured international transit & export packaging included.',
+          shippingNotice: domestic ? 'Delivery arrangements will be confirmed by the studio.' : 'International delivery arrangements will be confirmed by the studio.',
           createdAt: now.toISOString() };
         await writeOrder(client, order);
         return { success: true, statusCode: 201, order, subtotalNumeric, message: `Order ${orderId} created successfully.` };

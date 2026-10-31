@@ -356,7 +356,7 @@ export function renderCartDrawerContent() {
 
   footer.innerHTML = `
     <div style="font-size: 0.76rem; color: var(--sage); line-height: 1.4; background: rgba(92, 99, 88, 0.08); padding: 8px 12px; border-radius: 4px;">
-      &check; <strong>Studio Guarantee:</strong> Authenticity certificate & insured museum packaging included.
+      <strong>Delivery:</strong> Arrangements will be confirmed by the studio.
     </div>
     <div class="cart-drawer-actions">
       <a href="${getRelativeUrl('checkout.html')}" class="btn-checkout-drawer">

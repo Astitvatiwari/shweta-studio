@@ -85,7 +85,17 @@ try {
   });
   assert.equal(replay.success, true, 'same verified payment replay is idempotent');
 
-  const secondCode = Object.values(await store.getInventory()).find(item => item.status === 'Available' && item.price && item.inventoryCode !== artworkCode)?.inventoryCode;
+  const demoCode = Object.values(await store.getInventory()).find(item => item.status === 'Available' && item.price && item.inventoryCode !== artworkCode)?.inventoryCode;
+  const demoOrder = await store.createCartOrder({ customer, items: [{ inventoryCode: demoCode, purchaseType: 'original' }], clientRequestId: 'pg-demo-1' });
+  const simulated = await store.updateOrderPaymentStatus(demoOrder.order.orderId, { paymentStatus: 'demo_simulated' });
+  assert.equal(simulated.order.paymentStatus, 'demo_simulated');
+  assert.equal((await store.getArtworkInventory(demoCode)).status, 'Reserved', 'demo checkout does not sell PostgreSQL inventory');
+  const demoCancelled = await store.updateOrderPaymentStatus(demoOrder.order.orderId, { paymentStatus: 'cancelled' });
+  assert.equal(demoCancelled.success, true);
+  assert.equal((await store.getArtworkInventory(demoCode)).status, 'Available', 'demo reservation can be released safely');
+
+  const secondCode = Object.values(await store.getInventory()).find(item => item.status === 'Available' && item.price &&
+    item.inventoryCode !== artworkCode && item.inventoryCode !== demoCode)?.inventoryCode;
   const pending = await store.createCartOrder({ customer, items: [{ inventoryCode: secondCode, purchaseType: 'original' }], clientRequestId: 'pg-fail-1' });
   assert.equal(pending.success, true);
   const failed = await store.updateOrderPaymentStatus(pending.order.orderId, { paymentStatus: 'failed', eventId: 'evt_test_fail', eventType: 'payment.failed' });

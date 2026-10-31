@@ -187,8 +187,8 @@ export function renderCheckoutSummary() {
   if (currencyBadgeEl) currencyBadgeEl.innerText = isDomestic ? 'INR (₹)' : 'USD ($)';
   if (shippingNoteEl) {
     shippingNoteEl.innerText = isDomestic
-      ? 'Complimentary insured studio delivery across India included.'
-      : 'Insured international transit & museum export packaging included.';
+      ? 'Delivery arrangements will be confirmed by the studio.'
+      : 'International delivery arrangements will be confirmed by the studio.';
   }
 }
 

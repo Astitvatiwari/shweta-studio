@@ -15,6 +15,7 @@ const __dirname = path.dirname(__filename);
 // Configure isolated test environment before loading server/store modules
 const TEST_DATA_DIR = path.join(__dirname, 'test-data');
 process.env.NODE_ENV = 'test';
+process.env.API_RATE_LIMIT_PER_PROXY = '300';
 process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.ALLOW_DEMO_CHECKOUT = 'true';
 process.env.ADMIN_API_KEY = 'test-studio-admin-secret-key-123';
@@ -35,6 +36,7 @@ const {
   resetTestStore,
   initializeInventory,
   updateOrderPaymentStatus,
+  createCartOrder,
   cancelCheckoutReservation,
   cleanExpiredReservations,
   saveStoreTransaction
@@ -42,7 +44,7 @@ const {
 
 let serverInstance = null;
 let passedCount = 0;
-const totalCount = 31;
+const totalCount = 32;
 
 function reportTest(num, name, passed, details = '') {
   const symbol = passed ? '✅' : '❌';
@@ -1314,6 +1316,80 @@ async function runTests() {
       assert.strictEqual(healthRes.status, 200);
       assert.deepStrictEqual(health, { success: true, status: 'ok' });
       reportTest(31, 'Render health endpoint', true, 'GET /healthz returns a successful liveness response');
+    }
+
+    // Test 32: Public confirmation status is backend-verified and contains no PII
+    {
+      resetTestStore();
+      const createPendingOrder = async (inventoryCode, suffix) => {
+        const created = await createCartOrder({
+          customer: { name: 'Private Test Customer', email: 'private@example.test', phone: '+91 90000 00000', address: 'Private Test Address', country: 'India' },
+          items: [{ inventoryCode, purchaseType: 'original', quantity: 1 }],
+          clientRequestId: `REQ-CONFIRM-${suffix}-${Date.now()}`
+        });
+        assert.equal(created.success, true);
+        return created.order.orderId;
+      };
+      const createDemoOrder = async inventoryCode => {
+        const response = await fetch(`${BASE_URL}/api/checkout/create-order`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customer: { name: 'Private Test Customer', email: 'private@example.test', phone: '+91 90000 00000', address: 'Private Test Address', country: 'India' },
+            items: [{ inventoryCode, purchaseType: 'original', quantity: 1 }],
+            clientRequestId: `REQ-DEMO-${Date.now()}`
+          })
+        });
+        assert.equal(response.status, 201);
+        const result = await response.json();
+        assert.equal(result.demoMode, true);
+        assert.equal(result.order.paymentStatus, 'demo_simulated');
+        return result.order.orderId;
+      };
+      const statusFor = async orderId => fetch(`${BASE_URL}/api/checkout/order-status?orderId=${encodeURIComponent(orderId)}`);
+
+      const pendingId = await createPendingOrder('SS-PT-009', 'PENDING');
+      let statusResponse = await statusFor(pendingId);
+      let statusBody = await statusResponse.json();
+      assert.equal(statusResponse.status, 200);
+      assert.deepEqual(statusBody, { success: true, status: 'payment_pending' });
+      assert.doesNotMatch(JSON.stringify(statusBody), /private@example|Private Test|Address|razorpay/i);
+
+      await updateOrderPaymentStatus(pendingId, { paymentStatus: 'failed' });
+      statusResponse = await statusFor(pendingId);
+      assert.deepEqual(await statusResponse.json(), { success: true, status: 'failed' });
+      await updateOrderPaymentStatus(pendingId, { paymentStatus: 'cancelled' });
+      statusResponse = await statusFor(pendingId);
+      assert.deepEqual(await statusResponse.json(), { success: true, status: 'cancelled' });
+
+      const expiredId = await createPendingOrder('SS-PT-008', 'EXPIRED');
+      await updateOrderPaymentStatus(expiredId, { paymentStatus: 'expired' });
+      statusResponse = await statusFor(expiredId);
+      assert.deepEqual(await statusResponse.json(), { success: true, status: 'expired' });
+
+      const confirmedId = await createPendingOrder('SS-PT-006', 'CONFIRMED');
+      await updateOrderPaymentStatus(confirmedId, { paymentStatus: 'confirmed', razorpayPaymentId: 'pay_synthetic_test' });
+      statusResponse = await statusFor(confirmedId);
+      assert.deepEqual(await statusResponse.json(), { success: true, status: 'confirmed' });
+
+      statusResponse = await statusFor('ORD-unknown-00000000');
+      assert.equal(statusResponse.status, 404);
+      statusBody = await statusResponse.json();
+      assert.deepEqual(statusBody, { success: false, error: 'Order status is unavailable.' });
+      assert.doesNotMatch(JSON.stringify(statusBody), /unknown-00000000|customer|email|payment id/i);
+
+      statusResponse = await statusFor('../orders');
+      assert.equal(statusResponse.status, 400);
+
+      const demoId = await createDemoOrder('SS-PT-014');
+      statusResponse = await statusFor(demoId);
+      assert.deepEqual(await statusResponse.json(), { success: true, status: 'demo_simulated' });
+      const demoInventory = getInventory()['SS-PT-014'];
+      assert.equal(demoInventory.status, 'Reserved', 'demo checkout holds inventory until expiry but never sells it');
+      assert.equal(demoInventory.originalQuantity, 0);
+
+      reportTest(32, 'Backend-verified order confirmation states', true,
+        'Confirmed, pending, failed, cancelled, expired, demo, missing, and invalid references return status-only responses; demo never marks artwork sold');
     }
 
   } finally {

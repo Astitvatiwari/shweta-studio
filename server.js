@@ -665,10 +665,14 @@ async function handleRequest(req, res) {
       }
 
       // Demo/staging fallback (only when ALLOW_DEMO_CHECKOUT is true and NODE_ENV !== 'production')
+      const simulatedOrder = await updateOrderPaymentStatus(result.order.orderId, { paymentStatus: 'demo_simulated' });
+      if (!simulatedOrder.success) {
+        return sendJson(res, 503, { success: false, error: 'Demo checkout could not be recorded. Please retry.' });
+      }
       return sendJson(res, 201, {
         success: true,
         demoMode: true,
-        order: publicOrder(result.order),
+        order: publicOrder(simulatedOrder.order),
         razorpayOrderId: null,
         amount: amountPaise,
         currency,
@@ -899,6 +903,26 @@ async function handleRequest(req, res) {
     } catch (err) {
       return handleRequestError(res, err);
     }
+  }
+
+  // 9. GET /api/checkout/order-status - Minimal public status lookup for the
+  // confirmation page. Never return customer details, items, or payment IDs.
+  if (req.method === 'GET' && pathname === '/api/checkout/order-status') {
+    const orderId = reqUrl.searchParams.get('orderId') || '';
+    if (!/^(?:ORD|COM)-[A-Za-z0-9-]{1,96}$/.test(orderId)) {
+      return sendJson(res, 400, { success: false, error: 'A valid order reference is required.' });
+    }
+
+    const order = (await getOrders()).find(candidate => candidate.orderId === orderId);
+    if (!order) {
+      return sendJson(res, 404, { success: false, error: 'Order status is unavailable.' });
+    }
+
+    const supportedStatuses = new Set(['payment_pending', 'pending', 'confirmed', 'failed', 'cancelled', 'expired', 'demo_simulated']);
+    if (!supportedStatuses.has(order.paymentStatus)) {
+      return sendJson(res, 503, { success: false, error: 'Order status is temporarily unavailable.' });
+    }
+    return sendJson(res, 200, { success: true, status: order.paymentStatus });
   }
 
   // 9. GET /api/orders (Administrative only: protected against public customer data leakage)

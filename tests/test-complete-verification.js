@@ -31,7 +31,8 @@ async function testComplete() {
     });
 
     target.on('response', res => {
-      if (res.status() >= 400 && !res.url().includes('google-analytics') && !res.url().includes('googletagmanager')) {
+      const expectedMissingOrder = res.status() === 404 && /\/api\/checkout\/order-status(?:\?|$)/.test(res.url());
+      if (res.status() >= 400 && !expectedMissingOrder && !res.url().includes('google-analytics') && !res.url().includes('googletagmanager')) {
         failedRequests.push({ url: res.url(), status: res.status() });
         console.log(`[NET ERROR]: ${res.status()} ${res.url()}`);
       }
@@ -241,7 +242,53 @@ async function testComplete() {
     if (!checkoutSuccessPage.url().includes('orderId=')) {
       throw new Error('Successful demo checkout did not reach order confirmation.');
     }
-    console.log('Checkout created a demo order, handled payment-window cancellation, and reached order confirmation.');
+    await checkoutSuccessPage.getByRole('heading', { name: 'Test Checkout' }).waitFor();
+    if (await checkoutSuccessPage.locator('#confirm-receipt').isVisible()) {
+      throw new Error('A simulated checkout incorrectly displayed the confirmed receipt.');
+    }
+    console.log('Checkout created a demo order, handled payment-window cancellation, and displayed the non-paid test state.');
+
+    const confirmationCases = [
+      ['confirmed', 'Acquisition Confirmed', true],
+      ['payment_pending', 'Payment Pending', false],
+      ['failed', 'Payment Not Completed', false],
+      ['cancelled', 'Checkout Cancelled', false],
+      ['expired', 'Reservation Expired', false],
+      ['demo_simulated', 'Test Checkout', false],
+      ['unrecognized', 'Confirmation Unavailable', false]
+    ];
+    let confirmationResponse = { status: 200, body: { success: true, status: '' } };
+    await checkoutSuccessPage.route('**/api/checkout/order-status**', route => route.fulfill({
+      status: confirmationResponse.status,
+      contentType: 'application/json',
+      body: JSON.stringify(confirmationResponse.body)
+    }));
+    for (const [status, expectedTitle, receiptVisible] of confirmationCases) {
+      confirmationResponse = { status: 200, body: { success: true, status } };
+      await checkoutSuccessPage.goto(`http://localhost:3000/order-confirmation.html?orderId=ORD-BROWSER-${status}`, { waitUntil: 'networkidle' });
+      await checkoutSuccessPage.getByRole('heading', { name: expectedTitle }).waitFor();
+      if ((await checkoutSuccessPage.locator('#confirm-receipt').isVisible()) !== receiptVisible) {
+        throw new Error(`Receipt visibility was incorrect for confirmation state ${status}.`);
+      }
+      if (receiptVisible) {
+        const labels = await checkoutSuccessPage.locator('#confirm-receipt').innerText();
+        if (!labels.includes('Valued Art Collector') || !labels.includes('Provided at checkout') || /Insured Delivery Destination/i.test(labels)) {
+          throw new Error('Confirmed receipt exposed customer data or included an unverified insurance claim.');
+        }
+      }
+    }
+    confirmationResponse = { status: 404, body: { success: false, error: 'Order status is unavailable.' } };
+    await checkoutSuccessPage.goto('http://localhost:3000/order-confirmation.html?orderId=ORD-BROWSER-MISSING', { waitUntil: 'networkidle' });
+    await checkoutSuccessPage.getByRole('heading', { name: 'Order Not Available' }).waitFor();
+    if (await checkoutSuccessPage.locator('#confirm-receipt').isVisible()) {
+      throw new Error('An inaccessible order incorrectly displayed the confirmed receipt.');
+    }
+    await checkoutSuccessPage.unroute('**/api/checkout/order-status**');
+    await checkoutSuccessPage.goto('http://localhost:3000/order-confirmation.html', { waitUntil: 'networkidle' });
+    await checkoutSuccessPage.getByRole('heading', { name: 'Order Not Available' }).waitFor();
+    if (await checkoutSuccessPage.locator('#confirm-receipt').isVisible()) {
+      throw new Error('A confirmation page without an order reference displayed a receipt.');
+    }
 
     console.log('\n--- 7. Checking errors summary ---');
     console.log('Failed network requests:', failedRequests);

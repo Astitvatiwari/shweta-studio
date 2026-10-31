@@ -11,7 +11,7 @@
 
 Use synthetic customer/order data and Razorpay test credentials only. Do not use live keys or enable live transactions.
 
-- Exercise a successful sandbox checkout; verify server-authoritative amount/order creation, payment signature validation, persisted order, and inventory transition only after verified payment.
+- [x] Successful Razorpay Test Mode purchase for `SS-PT-009` verified by the owner in staging PostgreSQL using pgAdmin and a read-only query: `payment_status=confirmed`, gateway order/payment links present, inventory `Sold`, `original_quantity=0`. No customer data or raw payment identifiers were recorded here.
 - Exercise failed and cancelled payments; confirm reservation handling, clear recovery messaging, and no false paid status or unintended sale.
 - Verify reservation expiry and that a reserved/sold artwork cannot be purchased concurrently.
 - Send valid and invalid webhook signatures; confirm only verified events are applied.

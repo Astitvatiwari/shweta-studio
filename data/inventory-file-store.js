@@ -928,8 +928,8 @@ export async function createCartOrder({ customer, items, clientRequestId, paymen
       reservationExpiresAt: reservationExpiry,
       paymentMethod: paymentMethod || 'studio_standard',
       shippingNotice: isDomestic
-        ? 'Complimentary insured studio delivery across India included.'
-        : 'Insured international transit & export packaging included.',
+        ? 'Delivery arrangements will be confirmed by the studio.'
+        : 'International delivery arrangements will be confirmed by the studio.',
       createdAt: timestamp
     };
 
