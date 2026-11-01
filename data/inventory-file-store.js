@@ -447,6 +447,18 @@ export function cancelCheckoutReservation(orderId) {
   return updateOrderPaymentStatus(orderId, { paymentStatus: 'cancelled' });
 }
 
+/** Link the provider order before returning checkout details to the browser. */
+export function updateRazorpayOrderId(orderId, razorpayOrderId) {
+  if (typeof razorpayOrderId !== 'string' || !/^order_[A-Za-z0-9]{1,100}$/.test(razorpayOrderId)) return null;
+  const orders = getOrders();
+  const order = orders.find(item => item.orderId === orderId);
+  if (!order) return null;
+  if (order.razorpayOrderId) return order;
+  order.razorpayOrderId = razorpayOrderId;
+  saveStoreTransaction({ orders });
+  return order;
+}
+
 /**
  * Initializes inventory from artworks.js.
  * Preserves initial availability ("Reserved" for SS-SC-004, "Available on Inquiry" for sculptures).

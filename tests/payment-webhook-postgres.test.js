@@ -65,6 +65,30 @@ async function sendWebhook(payload, eventId) {
   return { response, body: await response.json() };
 }
 
+async function sendCheckoutVerification(order, paymentId, gatewayOrderId = order.razorpayOrderId) {
+  const signature = crypto.createHmac('sha256', testKeySecret)
+    .update(`${gatewayOrderId}|${paymentId}`).digest('hex');
+  const response = await originalFetch(`http://127.0.0.1:${server.address().port}/api/checkout/verify-payment`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ orderId: order.orderId, razorpayOrderId: gatewayOrderId,
+      razorpayPaymentId: paymentId, razorpaySignature: signature })
+  });
+  return { response, body: await response.json() };
+}
+
+function capturedProviderPayment(order, paymentId, overrides = {}) {
+  return {
+    id: paymentId,
+    order_id: order.razorpayOrderId,
+    amount: Math.round(order.subtotalNumeric * 100),
+    currency: order.currency,
+    status: 'captured',
+    notes: { orderId: order.orderId },
+    ...overrides
+  };
+}
+
 async function createReservedOrder(store, clientRequestId, art) {
   const created = await store.createCartOrder({
     customer: { name: 'Phase 6 Synthetic', email: `${clientRequestId}@example.invalid`, country: 'India' },
@@ -144,7 +168,7 @@ try {
   server = await app.startServer(0);
 
   const candidates = artworks.filter(art => (!art.availability || art.availability === 'Available') && art.price);
-  assert.ok(candidates.length >= 17, 'catalog needs enough independent available originals for webhook cases');
+  assert.ok(candidates.length >= 28, 'catalog needs enough independent available originals for webhook, callback, and expiry cases');
   let candidateIndex = 0;
   const nextOrder = label => createReservedOrder(store,
     `phase6-${label}-${crypto.randomBytes(4).toString('hex')}`, candidates[candidateIndex++]);
@@ -179,6 +203,116 @@ try {
   assert.equal(validRows.rows[0].razorpay_payment_id, validPaymentId);
   assert.equal(validRows.rows[0].event_count, 1, 'duplicate delivery records one event');
   assert.equal((await store.getArtworkInventory(validOrder.inventoryCode)).status, 'Sold');
+
+  // The browser callback must independently verify the provider's captured
+  // payment. The same payment rules and persistence transaction are used as
+  // the webhook path.
+  const callbackOrder = await nextOrder('callback-valid');
+  const callbackPaymentId = 'pay_phase6callbackvalid';
+  providerResults.set(callbackPaymentId, { body: capturedProviderPayment(callbackOrder, callbackPaymentId) });
+  const callbackResult = await sendCheckoutVerification(callbackOrder, callbackPaymentId);
+  assert.equal(callbackResult.response.status, 200);
+  assert.equal(callbackResult.body.order.paymentStatus, 'confirmed');
+  assert.equal((await store.getArtworkInventory(callbackOrder.inventoryCode)).status, 'Sold');
+  const providerCallsBeforeCallbackReplay = providerCalls;
+  const callbackReplay = await sendCheckoutVerification(callbackOrder, callbackPaymentId);
+  assert.equal(callbackReplay.response.status, 200);
+  assert.equal(callbackReplay.body.duplicate, true);
+  assert.equal(providerCalls, providerCallsBeforeCallbackReplay, 'confirmed callback replay should be idempotent without provider lookup');
+
+  for (const status of ['authorized', 'pending', 'failed']) {
+    const order = await nextOrder(`callback-status-${status}`);
+    const paymentId = `pay_phase6callback${status}`;
+    providerResults.set(paymentId, { body: capturedProviderPayment(order, paymentId, { status }) });
+    if (status === 'authorized') {
+      const beforeMismatch = providerCalls;
+      const mismatchedRequest = await sendCheckoutVerification(order, paymentId, 'order_wrongcallback');
+      assert.equal(mismatchedRequest.response.status, 400);
+      assert.equal(providerCalls, beforeMismatch, 'locally unlinked callback gateway ID must be rejected before provider lookup');
+      await assertUnconfirmed(appPool, store, order);
+    }
+    const result = await sendCheckoutVerification(order, paymentId);
+    assert.equal(result.response.status, 503, `${status} payment callback must remain retryable until captured`);
+    assert.equal(result.body.retryable, true);
+    await assertUnconfirmed(appPool, store, order);
+  }
+
+  for (const [label, overrides] of [
+    ['order', { order_id: 'order_anothercallback' }],
+    ['amount', { amount: 1 }],
+    ['currency', { currency: 'USD' }]
+  ]) {
+    const order = await nextOrder(`callback-mismatch-${label}`);
+    const paymentId = `pay_phase6callbackmismatch${label}`;
+    providerResults.set(paymentId, { body: capturedProviderPayment(order, paymentId, overrides) });
+    const result = await sendCheckoutVerification(order, paymentId);
+    assert.equal(result.response.status, 400, `provider ${label} mismatch must be rejected`);
+    await assertUnconfirmed(appPool, store, order);
+  }
+
+  const callbackWrongPaymentOrder = await nextOrder('callback-payment-id-mismatch');
+  const callbackRequestedPaymentId = 'pay_phase6callbackrequested';
+  providerResults.set(callbackRequestedPaymentId, { body: capturedProviderPayment(
+    callbackWrongPaymentOrder, 'pay_phase6callbackdifferent'
+  ) });
+  const callbackWrongPayment = await sendCheckoutVerification(callbackWrongPaymentOrder, callbackRequestedPaymentId);
+  assert.equal(callbackWrongPayment.response.status, 503, 'provider response for another payment ID must fail closed');
+  await assertUnconfirmed(appPool, store, callbackWrongPaymentOrder);
+
+  for (const failure of [
+    { status: 503, body: { error: 'temporary provider failure' } },
+    { throw: new Error('simulated network error') }
+  ]) {
+    const order = await nextOrder('callback-provider-failure');
+    const paymentId = `pay_phase6callbackfailure${candidateIndex}`;
+    providerResults.set(paymentId, failure);
+    const result = await sendCheckoutVerification(order, paymentId);
+    assert.equal(result.response.status, 503);
+    assert.equal(result.body.retryable, true);
+    assert.doesNotMatch(JSON.stringify(result.body), /secret|stack|simulated network/i);
+    await assertUnconfirmed(appPool, store, order);
+  }
+
+  // Callback and a signed capture webhook may race. Both verify the same
+  // provider record, while the row lock permits only one inventory transition.
+  const raceOrder = await nextOrder('callback-webhook-race');
+  const racePaymentId = 'pay_phase6callbackwebhookrace';
+  const raceEvent = eventFor(raceOrder, racePaymentId);
+  providerResults.set(racePaymentId, { body: capturedProviderPayment(raceOrder, racePaymentId) });
+  const [raceCallback, raceWebhook] = await Promise.all([
+    sendCheckoutVerification(raceOrder, racePaymentId),
+    sendWebhook(raceEvent, 'evt-phase6-callback-webhook-race')
+  ]);
+  assert.equal(raceCallback.response.status, 200);
+  assert.equal(raceWebhook.response.status, 200);
+  const raceRow = await appPool.query(`SELECT payment_status, razorpay_payment_id,
+      (SELECT count(*)::int FROM payment_events WHERE order_id=orders.order_id) AS event_count
+    FROM orders WHERE order_id=$1`, [raceOrder.orderId]);
+  assert.equal(raceRow.rows[0].payment_status, 'confirmed');
+  assert.equal(raceRow.rows[0].razorpay_payment_id, racePaymentId);
+  assert.equal(raceRow.rows[0].event_count, 1, 'callback/webhook race must record the signed event once');
+  assert.equal((await store.getArtworkInventory(raceOrder.inventoryCode)).status, 'Sold');
+
+  // A delayed provider verification after a hold expires must not sell an
+  // artwork that another checkout has reserved. The captured payment remains
+  // available for studio reconciliation rather than silently stealing stock.
+  const lateOrder = await nextOrder('callback-after-expiry');
+  const latePaymentId = 'pay_phase6callbacklate';
+  providerResults.set(latePaymentId, { body: capturedProviderPayment(lateOrder, latePaymentId) });
+  await appPool.query(`UPDATE inventory SET reserved_until=now()-interval '1 second'
+    WHERE inventory_code=$1 AND reserved_order_id=$2`, [lateOrder.inventoryCode, lateOrder.orderId]);
+  assert.equal((await store.getArtworkInventory(lateOrder.inventoryCode)).status, 'Available');
+  const replacement = await store.createCartOrder({
+    customer: { name: 'Phase 6 Synthetic Replacement', email: 'replacement@example.invalid', country: 'India' },
+    items: [{ inventoryCode: lateOrder.inventoryCode, purchaseType: 'original', quantity: 1 }],
+    clientRequestId: `phase6-replacement-${crypto.randomBytes(4).toString('hex')}`
+  });
+  assert.equal(replacement.success, true);
+  const lateCallback = await sendCheckoutVerification(lateOrder, latePaymentId);
+  assert.equal(lateCallback.response.status, 400, 'expired order cannot be auto-confirmed after its reservation ended');
+  const protectedInventory = await store.getArtworkInventory(lateOrder.inventoryCode);
+  assert.equal(protectedInventory.status, 'Reserved');
+  assert.equal(protectedInventory.reservedOrderId, replacement.order.orderId);
 
   // A signed capture event cannot confirm a payment that Razorpay still reports
   // as authorized/pending/failed.

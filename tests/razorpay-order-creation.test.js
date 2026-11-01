@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { getRazorpayFailureLogFields, resolveRazorpayOrderFailure } from '../payments/razorpay-gateway.js';
+import { getRazorpayFailureLogFields, resolveRazorpayOrderFailure, verifyRazorpayCapturedPayment } from '../payments/razorpay-gateway.js';
 
 const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'shweta-gateway-test-'));
 process.env.NODE_ENV = 'test';
@@ -11,6 +11,61 @@ process.env.ALLOW_DEMO_CHECKOUT = 'false';
 process.env.RAZORPAY_KEY_ID = 'rzp_test_synthetic';
 process.env.RAZORPAY_KEY_SECRET = 'synthetic_secret_for_test_only';
 process.env.RAZORPAY_API_URL = '';
+
+const originalFetchForVerification = globalThis.fetch;
+const paymentOrder = {
+  orderId: 'ORD-SYNTHETIC-PAYMENT-VERIFY',
+  razorpayOrderId: 'order_syntheticpaymentverify',
+  subtotalNumeric: 123.45,
+  currency: 'INR'
+};
+const expectedPayment = {
+  id: 'pay_syntheticpaymentverify',
+  order_id: paymentOrder.razorpayOrderId,
+  amount: 12345,
+  currency: 'INR',
+  status: 'captured',
+  notes: { orderId: paymentOrder.orderId }
+};
+globalThis.fetch = async (url, init) => {
+  assert.equal(String(url), `https://api.razorpay.com/v1/payments/${expectedPayment.id}`);
+  assert.equal(init.method, 'GET');
+  assert.equal(Buffer.from(init.headers.Authorization.slice(6), 'base64').toString(),
+    'rzp_test_synthetic:synthetic_secret_for_test_only');
+  return new Response(JSON.stringify(expectedPayment), { status: 200 });
+};
+const capturedVerification = await verifyRazorpayCapturedPayment({
+  order: paymentOrder, paymentId: expectedPayment.id, razorpayOrderId: paymentOrder.razorpayOrderId
+});
+assert.equal(capturedVerification.verified, true, 'a matching provider capture is eligible for confirmation');
+for (const status of ['authorized', 'pending', 'failed']) {
+  globalThis.fetch = async () => new Response(JSON.stringify({ ...expectedPayment, status }), { status: 200 });
+  const result = await verifyRazorpayCapturedPayment({
+    order: paymentOrder, paymentId: expectedPayment.id, razorpayOrderId: paymentOrder.razorpayOrderId
+  });
+  assert.deepEqual(result, { verified: false, reason: 'not_captured' }, `${status} is never a captured payment`);
+}
+for (const [label, override] of [
+  ['order', { order_id: 'order_wrong_synthetic' }],
+  ['amount', { amount: 1 }],
+  ['currency', { currency: 'USD' }]
+]) {
+  globalThis.fetch = async () => new Response(JSON.stringify({ ...expectedPayment, ...override }), { status: 200 });
+  const result = await verifyRazorpayCapturedPayment({
+    order: paymentOrder, paymentId: expectedPayment.id, razorpayOrderId: paymentOrder.razorpayOrderId
+  });
+  assert.equal(result.verified, false, `provider ${label} mismatch must fail closed`);
+}
+globalThis.fetch = async () => new Response(JSON.stringify({ error: 'unavailable' }), { status: 503 });
+await assert.rejects(verifyRazorpayCapturedPayment({
+  order: paymentOrder, paymentId: expectedPayment.id, razorpayOrderId: paymentOrder.razorpayOrderId
+}), error => error.gatewayCategory === 'provider_http' && error.statusCode === 503,
+'provider API failure remains an error for retryable route handling');
+globalThis.fetch = async () => new Response(JSON.stringify({ ...expectedPayment, id: 'pay_other_synthetic' }), { status: 200 });
+await assert.rejects(verifyRazorpayCapturedPayment({
+  order: paymentOrder, paymentId: expectedPayment.id, razorpayOrderId: paymentOrder.razorpayOrderId
+}), error => error.gatewayCategory === 'invalid_response', 'provider payment ID mismatch is rejected');
+globalThis.fetch = originalFetchForVerification;
 
 const persistenceError = Object.assign(new Error('SQL detail must never be logged'), { code: '42P08' });
 assert.equal(getRazorpayFailureLogFields(persistenceError, 'persist_order_id'),

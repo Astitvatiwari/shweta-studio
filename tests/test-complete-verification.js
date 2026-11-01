@@ -240,6 +240,51 @@ async function testComplete() {
     }
     await page.unroute('**/api/checkout/create-order');
 
+    // A retryable provider verification response must lead to a neutral
+    // pending state, never a false signature failure or confirmed receipt.
+    const retryablePaymentPage = await browserContext.newPage();
+    watchBrowserPage(retryablePaymentPage);
+    await retryablePaymentPage.route('**/api/checkout/create-order', async route => {
+      const response = await route.fetch();
+      const data = await response.json();
+      await route.fulfill({ response, json: {
+        ...data, razorpayOrderId: 'order_test_browser_pending', keyId: 'rzp_test_browser'
+      } });
+    });
+    await retryablePaymentPage.route('**/api/checkout/verify-payment', route => route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: false, retryable: true, error: 'Payment verification is temporarily unavailable.' })
+    }));
+    await retryablePaymentPage.route('**/api/checkout/order-status**', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, status: 'payment_pending' })
+    }));
+    await retryablePaymentPage.goto('http://localhost:3000/checkout.html', { waitUntil: 'networkidle' });
+    await retryablePaymentPage.evaluate(() => {
+      window.Razorpay = function (options) {
+        this.open = () => options.handler({
+          razorpay_order_id: 'order_test_browser_pending',
+          razorpay_payment_id: 'pay_test_browser_pending',
+          razorpay_signature: 'a'.repeat(64)
+        });
+      };
+    });
+    for (const [field, value] of Object.entries(customer)) {
+      await retryablePaymentPage.locator(`#checkout-form [name="${field}"]`).fill(value);
+    }
+    await retryablePaymentPage.locator('#btn-submit-order').click();
+    await retryablePaymentPage.getByRole('heading', { name: 'Payment Pending' }).waitFor();
+    if (await retryablePaymentPage.locator('#confirm-receipt').isVisible()) {
+      throw new Error('Retryable payment verification incorrectly displayed a confirmed receipt.');
+    }
+    const pendingCopy = await retryablePaymentPage.locator('#confirm-status-description').innerText();
+    if (!/Do not submit another payment/i.test(pendingCopy)) {
+      throw new Error('Pending payment state did not instruct the customer to avoid a duplicate payment.');
+    }
+    await retryablePaymentPage.close();
+
     // Finish checkout in a second tab in the same browser context. Keeping the
     // cancellation tab alive lets Chromium finish any remaining modal requests.
     const checkoutSuccessPage = await browserContext.newPage();

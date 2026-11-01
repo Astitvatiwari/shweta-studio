@@ -160,6 +160,45 @@ export async function fetchRazorpayPayment(paymentId) {
   return data;
 }
 
+/**
+ * Verify that a provider payment is a captured payment for this exact local
+ * checkout. Both the browser callback and webhook must use the same rules.
+ */
+export async function verifyRazorpayCapturedPayment({ order, paymentId, razorpayOrderId }) {
+  if (!order || typeof order.orderId !== 'string' || !order.orderId ||
+      typeof order.razorpayOrderId !== 'string' || !order.razorpayOrderId ||
+      order.razorpayOrderId !== razorpayOrderId) {
+    return { verified: false, reason: 'order_mismatch' };
+  }
+
+  const legacyAmount = Number.parseFloat(String(order.total || order.subtotal || '').replace(/[^0-9.]/g, ''));
+  const amount = order.subtotalNumeric == null ? legacyAmount : Number(order.subtotalNumeric);
+  const expectedAmountPaise = Math.round(amount * 100);
+  const currency = typeof order.currency === 'string' && order.currency
+    ? order.currency.toUpperCase() : 'INR';
+  if (!Number.isFinite(amount) || amount <= 0 || !Number.isSafeInteger(expectedAmountPaise) ||
+      !/^[A-Z]{3}$/.test(currency)) {
+    return { verified: false, reason: 'local_order_invalid' };
+  }
+
+  const payment = await fetchRazorpayPayment(paymentId);
+  if (payment.id !== paymentId || payment.order_id !== order.razorpayOrderId ||
+      (payment.notes?.orderId && payment.notes.orderId !== order.orderId)) {
+    return { verified: false, reason: 'payment_mismatch' };
+  }
+  if (!Number.isSafeInteger(payment.amount) || payment.amount !== expectedAmountPaise) {
+    return { verified: false, reason: 'amount_mismatch' };
+  }
+  if (typeof payment.currency !== 'string' || payment.currency.toUpperCase() !== currency) {
+    return { verified: false, reason: 'currency_mismatch' };
+  }
+  if (payment.status !== 'captured') {
+    return { verified: false, reason: 'not_captured' };
+  }
+
+  return { verified: true, payment };
+}
+
 export function getRazorpayFailureLogFields(error, stage = 'gateway_create') {
   const status = Number.isInteger(error?.statusCode) ? error.statusCode : 'none';
   const allowedStage = ['gateway_create', 'persist_order_id', 'recover_order_id'].includes(stage) ? stage : 'unknown';

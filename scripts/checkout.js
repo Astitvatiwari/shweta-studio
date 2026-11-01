@@ -388,8 +388,13 @@ function launchRazorpayModal(checkoutData, order, customer) {
         if (verifyData.success) {
           if (!isDirectBuyNow) clearCart();
           window.location.href = `order-confirmation.html?orderId=${encodeURIComponent(order.orderId)}&status=verified`;
+        } else if (verifyData.retryable) {
+          // Provider outages and uncaptured states are not failed signatures.
+          // Keep the order pending so the webhook or a later verification can
+          // reconcile it without prompting the customer to pay again.
+          window.location.href = `order-confirmation.html?orderId=${encodeURIComponent(order.orderId)}`;
         } else {
-          alert('Payment signature verification failed: ' + verifyData.error);
+          alert('Payment could not be verified: ' + verifyData.error);
         }
       } catch (e) {
         window.location.href = `order-confirmation.html?orderId=${encodeURIComponent(order.orderId)}`;

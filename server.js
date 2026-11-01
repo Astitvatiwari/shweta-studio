@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import artworks from './artworks.js';
 import { safeAdminKeyMatch, safeClientError, verifyNetlifyProxySignature } from './security/request-security.js';
 import { recordPaymentFailure } from './payments/payment-failure-webhook.js';
-import { createRazorpayGatewayOrder, fetchRazorpayPayment, getRazorpayFailureLogFields, resolveRazorpayOrderFailure } from './payments/razorpay-gateway.js';
+import { createRazorpayGatewayOrder, getRazorpayFailureLogFields, resolveRazorpayOrderFailure, verifyRazorpayCapturedPayment } from './payments/razorpay-gateway.js';
 import {
   getSanitizedInventory,
   getSanitizedArtworkInventory,
@@ -732,8 +732,9 @@ async function handleRequest(req, res) {
         return sendJson(res, 400, { success: false, error: 'Invalid Razorpay payment verification fields.' });
       }
 
-      // If order has an assigned razorpayOrderId, ensure it matches
-      if (order.razorpayOrderId && order.razorpayOrderId !== razorpayOrderId) {
+      // A callback is confirmable only when this exact Razorpay order was
+      // persisted against the local order before checkout was returned.
+      if (!order.razorpayOrderId || order.razorpayOrderId !== razorpayOrderId) {
         return sendJson(res, 400, { success: false, error: 'Mismatched Razorpay order ID.' });
       }
 
@@ -747,6 +748,46 @@ async function handleRequest(req, res) {
 
       if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
         return sendJson(res, 400, { success: false, error: 'Invalid payment signature. Verification failed.' });
+      }
+
+      // A signed browser callback proves the callback fields were signed, but
+      // capture and the payable details must still be confirmed by Razorpay.
+      if (order.paymentStatus === 'confirmed' && order.razorpayPaymentId === razorpayPaymentId) {
+        return sendJson(res, 200, {
+          success: true,
+          duplicate: true,
+          order: publicOrder(order),
+          message: 'Payment was already verified.'
+        });
+      }
+
+      let providerVerification;
+      try {
+        providerVerification = await verifyRazorpayCapturedPayment({ order, paymentId: razorpayPaymentId, razorpayOrderId });
+      } catch (providerError) {
+        const category = /^[a-z_]+$/.test(providerError?.gatewayCategory || '')
+          ? providerError.gatewayCategory : 'request';
+        const status = Number.isInteger(providerError?.statusCode) ? providerError.statusCode : 'none';
+        console.warn(`[PAYMENT] Checkout payment verification unavailable (category=${category} status=${status}).`);
+        return sendJson(res, 503, {
+          success: false,
+          retryable: true,
+          error: 'Payment verification is temporarily unavailable. The order remains pending; do not submit another payment.'
+        });
+      }
+
+      if (!providerVerification.verified) {
+        if (providerVerification.reason === 'not_captured') {
+          return sendJson(res, 503, {
+            success: false,
+            retryable: true,
+            error: 'Razorpay has not confirmed capture. The order remains pending and can be verified again.'
+          });
+        }
+        if (providerVerification.reason === 'local_order_invalid') {
+          return sendJson(res, 409, { success: false, error: 'The local order cannot be verified. Please contact the studio.' });
+        }
+        return sendJson(res, 400, { success: false, error: 'Razorpay payment details do not match the studio order.' });
       }
 
       const updateRes = await updateOrderPaymentStatus(orderId, {
@@ -854,12 +895,21 @@ async function handleRequest(req, res) {
         // if Razorpay's current payment state has since advanced (for example,
         // to refunded) or the verification API is temporarily unavailable.
         if (order.paymentStatus === 'confirmed' && order.razorpayPaymentId === p.id) {
+          const duplicateResult = await updateOrderPaymentStatus(order.orderId, {
+            paymentStatus: 'confirmed',
+            razorpayPaymentId: p.id,
+            eventId,
+            eventType: body.event
+          });
+          if (!duplicateResult.success) {
+            return sendJson(res, duplicateResult.statusCode || 409, { success: false, error: duplicateResult.error });
+          }
           return sendJson(res, 200, { success: true, received: true, duplicate: true });
         }
 
-        let providerPayment;
+        let providerVerification;
         try {
-          providerPayment = await fetchRazorpayPayment(p.id);
+          providerVerification = await verifyRazorpayCapturedPayment({ order, paymentId: p.id, razorpayOrderId: p.order_id });
         } catch (providerError) {
           const category = /^[a-z_]+$/.test(providerError?.gatewayCategory || '')
             ? providerError.gatewayCategory : 'request';
@@ -868,19 +918,11 @@ async function handleRequest(req, res) {
           return sendJson(res, 503, { success: false, error: 'Payment verification is temporarily unavailable. Webhook delivery should be retried.' });
         }
 
-        if (providerPayment.status !== 'captured') {
+        if (!providerVerification.verified && providerVerification.reason === 'not_captured') {
           return sendJson(res, 503, { success: false, error: 'Razorpay has not confirmed capture. Webhook delivery should be retried.' });
         }
-        if (providerPayment.id !== p.id || providerPayment.order_id !== order.razorpayOrderId ||
-            providerPayment.order_id !== p.order_id ||
-            (providerPayment.notes?.orderId && providerPayment.notes.orderId !== order.orderId)) {
+        if (!providerVerification.verified) {
           return sendJson(res, 400, { success: false, error: 'Razorpay payment does not match the studio order.' });
-        }
-        if (!Number.isSafeInteger(providerPayment.amount) || providerPayment.amount !== expectedAmountPaise) {
-          return sendJson(res, 400, { success: false, error: 'Razorpay payment amount does not match the studio order.' });
-        }
-        if (typeof providerPayment.currency !== 'string' || providerPayment.currency.toUpperCase() !== orderCurrency) {
-          return sendJson(res, 400, { success: false, error: 'Razorpay payment currency does not match the studio order.' });
         }
 
         const updateRes = await updateOrderPaymentStatus(order.orderId, {
