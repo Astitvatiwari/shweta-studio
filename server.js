@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import artworks from './artworks.js';
 import { safeAdminKeyMatch, safeClientError, verifyNetlifyProxySignature } from './security/request-security.js';
 import { recordPaymentFailure } from './payments/payment-failure-webhook.js';
-import { createRazorpayGatewayOrder, getRazorpayFailureLogFields, resolveRazorpayOrderFailure } from './payments/razorpay-gateway.js';
+import { createRazorpayGatewayOrder, fetchRazorpayPayment, getRazorpayFailureLogFields, resolveRazorpayOrderFailure } from './payments/razorpay-gateway.js';
 import {
   getSanitizedInventory,
   getSanitizedArtworkInventory,
@@ -814,52 +814,95 @@ async function handleRequest(req, res) {
         if (typeof p.id !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(p.id)) {
           return sendJson(res, 400, { success: false, error: 'Invalid payment identifier in webhook.' });
         }
+        if (typeof p.order_id !== 'string' || !/^order_[A-Za-z0-9]{1,100}$/.test(p.order_id)) {
+          return sendJson(res, 400, { success: false, error: 'Invalid gateway order identifier in webhook.' });
+        }
+        if (typeof p.status !== 'string' || !p.status) {
+          return sendJson(res, 400, { success: false, error: 'Missing payment status in webhook.' });
+        }
+        if (p.status !== 'captured') {
+          return sendJson(res, 503, { success: false, error: 'Payment capture is not yet verified. Webhook delivery should be retried.' });
+        }
         const orders = await getOrders();
         const order = orders.find(o => o.orderId === p.notes?.orderId || (o.razorpayOrderId && o.razorpayOrderId === p.order_id));
-        if (order) {
-          if ((order.razorpayOrderId && order.razorpayOrderId !== p.order_id) ||
-              (process.env.NODE_ENV === 'production' && !order.razorpayOrderId)) {
-            return sendJson(res, 400, { success: false, error: 'Payment gateway order does not match the studio order.' });
-          }
-          // Amount & Currency verification
-          const orderCurrency = (order.currency || 'INR').toUpperCase();
-          if (typeof p.currency !== 'string' || p.currency.toUpperCase() !== orderCurrency) {
-            return sendJson(res, 400, {
-              success: false,
-              error: `Currency mismatch: payment currency "${String(p.currency || 'missing')}" does not match order currency "${orderCurrency}".`
-            });
-          }
-
-          const numTotal = parseFloat(String(order.total || order.subtotal || '0').replace(/[^0-9.]/g, '')) || 0;
-          const expectedAmountPaise = Math.round(numTotal * 100);
-          if (!Number.isSafeInteger(p.amount) || p.amount !== expectedAmountPaise) {
-            return sendJson(res, 400, {
-              success: false,
-              error: `Amount mismatch: payment amount ${p.amount} does not match order amount ${expectedAmountPaise}.`
-            });
-          }
-
-          const updateRes = await updateOrderPaymentStatus(order.orderId, {
-            paymentStatus: 'confirmed',
-            razorpayPaymentId: p.id,
-            eventId,
-            eventType: body.event
-          });
-
-          if (!updateRes.success) {
-            // A real capture can arrive after the checkout hold expires. Acknowledge
-            // the authenticated event to stop retries, but leave the order for review.
-            console.warn(`[PAYMENT] Captured payment requires reconciliation for order ${order.orderId}.`);
-            return sendJson(res, 200, {
-              success: false,
-              received: true,
-              requiresReview: true,
-              error: 'Payment was received but needs studio review.'
-            });
-          }
-
-          return sendJson(res, 200, { success: true, order: publicOrder(updateRes.order), message: 'Payment captured and verified.' });
+        if (!order) {
+          return sendJson(res, 503, { success: false, error: 'Payment order could not be matched. Webhook delivery should be retried.' });
         }
+        if (!order.razorpayOrderId || order.razorpayOrderId !== p.order_id ||
+            (p.notes?.orderId && p.notes.orderId !== order.orderId)) {
+          return sendJson(res, 400, { success: false, error: 'Payment gateway order does not match the studio order.' });
+        }
+
+        const orderCurrency = (order.currency || 'INR').toUpperCase();
+        if (typeof p.currency !== 'string' || p.currency.toUpperCase() !== orderCurrency) {
+          return sendJson(res, 400, {
+            success: false,
+            error: `Currency mismatch: payment currency "${String(p.currency || 'missing')}" does not match order currency "${orderCurrency}".`
+          });
+        }
+
+        const numTotal = parseFloat(String(order.total || order.subtotal || '0').replace(/[^0-9.]/g, '')) || 0;
+        const expectedAmountPaise = Math.round(numTotal * 100);
+        if (!Number.isSafeInteger(p.amount) || p.amount !== expectedAmountPaise) {
+          return sendJson(res, 400, {
+            success: false,
+            error: `Amount mismatch: payment amount ${p.amount} does not match order amount ${expectedAmountPaise}.`
+          });
+        }
+
+        // A previously verified capture remains idempotently acknowledged even
+        // if Razorpay's current payment state has since advanced (for example,
+        // to refunded) or the verification API is temporarily unavailable.
+        if (order.paymentStatus === 'confirmed' && order.razorpayPaymentId === p.id) {
+          return sendJson(res, 200, { success: true, received: true, duplicate: true });
+        }
+
+        let providerPayment;
+        try {
+          providerPayment = await fetchRazorpayPayment(p.id);
+        } catch (providerError) {
+          const category = /^[a-z_]+$/.test(providerError?.gatewayCategory || '')
+            ? providerError.gatewayCategory : 'request';
+          const status = Number.isInteger(providerError?.statusCode) ? providerError.statusCode : 'none';
+          console.warn(`[PAYMENT] Razorpay payment verification unavailable (category=${category} status=${status}).`);
+          return sendJson(res, 503, { success: false, error: 'Payment verification is temporarily unavailable. Webhook delivery should be retried.' });
+        }
+
+        if (providerPayment.status !== 'captured') {
+          return sendJson(res, 503, { success: false, error: 'Razorpay has not confirmed capture. Webhook delivery should be retried.' });
+        }
+        if (providerPayment.id !== p.id || providerPayment.order_id !== order.razorpayOrderId ||
+            providerPayment.order_id !== p.order_id ||
+            (providerPayment.notes?.orderId && providerPayment.notes.orderId !== order.orderId)) {
+          return sendJson(res, 400, { success: false, error: 'Razorpay payment does not match the studio order.' });
+        }
+        if (!Number.isSafeInteger(providerPayment.amount) || providerPayment.amount !== expectedAmountPaise) {
+          return sendJson(res, 400, { success: false, error: 'Razorpay payment amount does not match the studio order.' });
+        }
+        if (typeof providerPayment.currency !== 'string' || providerPayment.currency.toUpperCase() !== orderCurrency) {
+          return sendJson(res, 400, { success: false, error: 'Razorpay payment currency does not match the studio order.' });
+        }
+
+        const updateRes = await updateOrderPaymentStatus(order.orderId, {
+          paymentStatus: 'confirmed',
+          razorpayPaymentId: p.id,
+          eventId,
+          eventType: body.event
+        });
+
+        if (!updateRes.success) {
+          // A real capture can arrive after the checkout hold expires. Acknowledge
+          // the authenticated event to stop retries, but leave the order for review.
+          console.warn(`[PAYMENT] Captured payment requires reconciliation for order ${order.orderId}.`);
+          return sendJson(res, 200, {
+            success: false,
+            received: true,
+            requiresReview: true,
+            error: 'Payment was received but needs studio review.'
+          });
+        }
+
+        return sendJson(res, 200, { success: true, order: publicOrder(updateRes.order), message: 'Payment captured and verified.' });
       }
 
       if (body.event === 'payment.failed' && body.payload?.payment?.entity) {
@@ -882,6 +925,10 @@ async function handleRequest(req, res) {
           success: false,
           error: 'Payment order could not be matched. Webhook delivery should be retried.'
         });
+      }
+
+      if (body.event === 'payment.captured') {
+        return sendJson(res, 400, { success: false, error: 'Captured payment details are missing or invalid.' });
       }
 
       return sendJson(res, 200, { success: true, received: true });

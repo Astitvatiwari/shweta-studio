@@ -53,6 +53,38 @@ function reportTest(num, name, passed, details = '') {
   if (passed) passedCount++;
 }
 
+async function withMockedRazorpayPayments(responses, callback) {
+  const originalFetch = globalThis.fetch;
+  const originalKeyId = process.env.RAZORPAY_KEY_ID;
+  const originalKeySecret = process.env.RAZORPAY_KEY_SECRET;
+  process.env.RAZORPAY_KEY_ID = 'rzp_test_mock_only';
+  process.env.RAZORPAY_KEY_SECRET = 'test-only-api-secret';
+  globalThis.fetch = async (input, init = {}) => {
+    const requestUrl = new URL(typeof input === 'string' ? input : input.url);
+    if (requestUrl.hostname === 'api.razorpay.com' && requestUrl.pathname.startsWith('/v1/payments/')) {
+      assert.equal(init.method, 'GET');
+      assert.equal(init.headers.Authorization, `Basic ${Buffer.from('rzp_test_mock_only:test-only-api-secret').toString('base64')}`);
+      const paymentId = decodeURIComponent(requestUrl.pathname.slice('/v1/payments/'.length));
+      const response = responses.get(paymentId);
+      if (response?.throw) throw response.throw;
+      return new Response(JSON.stringify(response?.body || {}), { status: response?.status || 200 });
+    }
+    if (!['localhost', '127.0.0.1'].includes(requestUrl.hostname)) {
+      throw new Error('Unexpected external request blocked by the webhook test mock.');
+    }
+    return originalFetch(input, init);
+  };
+  try {
+    return await callback();
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalKeyId === undefined) delete process.env.RAZORPAY_KEY_ID;
+    else process.env.RAZORPAY_KEY_ID = originalKeyId;
+    if (originalKeySecret === undefined) delete process.env.RAZORPAY_KEY_SECRET;
+    else process.env.RAZORPAY_KEY_SECRET = originalKeySecret;
+  }
+}
+
 async function runTests() {
   console.log('\n================================================================');
   console.log(' SHWETA STUDIO — PRODUCTION READINESS & SECURITY TEST SUITE');
@@ -753,61 +785,58 @@ async function runTests() {
     // Test 20: Webhook Idempotency & Signature Authentication
     // ----------------------------------------------------
     {
-      const webhookPayload = JSON.stringify({
-        event: 'payment.captured',
-        payload: {
-          payment: {
-            entity: {
-              id: 'pay_webhook_test_001',
-              order_id: 'order_test_webhook_001',
-              amount: 1500000,
-              currency: 'INR',
-              status: 'captured'
-            }
-          }
-        }
+      const candidate = Object.values(getInventory()).find(item => item.status === 'Available' && item.originalQuantity > 0 && item.price);
+      assert.ok(candidate, 'a test artwork must be available');
+      const created = await createCartOrder({
+        customer: { name: 'Webhook Test', email: 'webhook@example.test', country: 'India' },
+        items: [{ inventoryCode: candidate.inventoryCode, purchaseType: 'original' }],
+        clientRequestId: `WEBHOOK-TEST-${Date.now()}`
       });
+      assert.equal(created.success, true);
+      const orderId = created.order.orderId;
+      const gatewayOrderId = 'order_webhooktest001';
+      const orders = getOrders();
+      orders.find(order => order.orderId === orderId).razorpayOrderId = gatewayOrderId;
+      saveStoreTransaction({ orders });
+      const amount = Math.round(created.order.subtotalNumeric * 100);
+      const paymentId = 'pay_webhook_test_001';
+      const responseMap = new Map([[paymentId, { body: {
+        id: paymentId, order_id: gatewayOrderId, amount, currency: 'INR', status: 'captured'
+      } }]]);
 
-      const validSignature = crypto
-        .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET)
-        .update(webhookPayload)
-        .digest('hex');
-
-      // 1. Forged signature rejected
-      const forgedRes = await fetch(`${BASE_URL}/api/payment/webhook`, {
-        method: 'POST',
-        headers: {
+      await withMockedRazorpayPayments(responseMap, async () => {
+        const webhookPayload = JSON.stringify({
+          event: 'payment.captured',
+          payload: { payment: { entity: {
+            id: paymentId, order_id: gatewayOrderId, notes: { orderId },
+            amount, currency: 'INR', status: 'captured'
+          } } }
+        });
+        const validSignature = crypto.createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET)
+          .update(webhookPayload).digest('hex');
+        const headers = {
           'Content-Type': 'application/json',
-          'X-Razorpay-Signature': 'invalid_signature_hex'
-        },
-        body: webhookPayload
-      });
-      assert.strictEqual(forgedRes.status, 400);
+          'X-Razorpay-Signature': validSignature,
+          'X-Razorpay-Event-Id': 'evt_webhook_test_001'
+        };
 
-      // 2. Valid signature accepted
-      const validRes = await fetch(`${BASE_URL}/api/payment/webhook`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Razorpay-Signature': validSignature
-        },
-        body: webhookPayload
-      });
-      assert.strictEqual(validRes.status, 200);
+        const forgedRes = await fetch(`${BASE_URL}/api/payment/webhook`, {
+          method: 'POST', headers: { ...headers, 'X-Razorpay-Signature': 'invalid_signature_hex' }, body: webhookPayload
+        });
+        assert.strictEqual(forgedRes.status, 400);
 
-      // 3. Duplicate event handled idempotently
-      const dupRes = await fetch(`${BASE_URL}/api/payment/webhook`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Razorpay-Signature': validSignature
-        },
-        body: webhookPayload
+        const validRes = await fetch(`${BASE_URL}/api/payment/webhook`, { method: 'POST', headers, body: webhookPayload });
+        const validData = await validRes.json();
+        assert.strictEqual(validRes.status, 200);
+        assert.strictEqual(validData.order.paymentStatus, 'confirmed');
+
+        const dupRes = await fetch(`${BASE_URL}/api/payment/webhook`, { method: 'POST', headers, body: webhookPayload });
+        assert.strictEqual(dupRes.status, 200);
       });
-      assert.strictEqual(dupRes.status, 200);
+      assert.equal(getArtworkInventory(candidate.inventoryCode).status, 'Sold');
 
       reportTest(20, 'Webhook Idempotency & Signature Authentication', true,
-        `Forged webhook signatures rejected; valid events accepted idempotently without duplicate side-effects`);
+        `Forged signatures rejected; provider-confirmed capture and duplicate delivery verified with a mocked Razorpay API`);
       assert.ok(true);
     }
 
@@ -984,9 +1013,16 @@ async function runTests() {
       const orderData = await orderRes.json();
       assert.strictEqual(orderRes.status, 201);
       const targetOrderId = orderData.order.orderId;
+      const gatewayOrderId = 'order_mismatchtest001';
+      const storedOrders = getOrders();
+      storedOrders.find(order => order.orderId === targetOrderId).razorpayOrderId = gatewayOrderId;
+      saveStoreTransaction({ orders: storedOrders });
       const numTotal = parseFloat(String(orderData.order.total).replace(/[^0-9.]/g, '')) || 0;
       const expectedPaise = Math.round(numTotal * 100);
 
+      await withMockedRazorpayPayments(new Map([['pay_exact_match_001', { body: {
+        id: 'pay_exact_match_001', order_id: gatewayOrderId, amount: expectedPaise, currency: 'INR', status: 'captured'
+      } }]]), async () => {
       // 1. Currency mismatch (USD sent for INR order)
       const currencyMismatchPayload = JSON.stringify({
         event: 'payment.captured',
@@ -994,6 +1030,7 @@ async function runTests() {
           payment: {
             entity: {
               id: 'pay_mismatch_curr_001',
+              order_id: gatewayOrderId,
               notes: { orderId: targetOrderId },
               amount: expectedPaise,
               currency: 'USD',
@@ -1019,6 +1056,7 @@ async function runTests() {
           payment: {
             entity: {
               id: 'pay_mismatch_amt_001',
+              order_id: gatewayOrderId,
               notes: { orderId: targetOrderId },
               amount: 100, // 1 INR instead of total
               currency: 'INR',
@@ -1044,6 +1082,7 @@ async function runTests() {
           payment: {
             entity: {
               id: 'pay_exact_match_001',
+              order_id: gatewayOrderId,
               notes: { orderId: targetOrderId },
               amount: expectedPaise,
               currency: 'INR',
@@ -1061,9 +1100,10 @@ async function runTests() {
       const data3 = await res3.json();
       assert.strictEqual(res3.status, 200);
       assert.strictEqual(data3.order.paymentStatus, 'confirmed');
+      });
 
       reportTest(25, 'Webhook Currency and Amount Mismatch Protection', true,
-        `Currency mismatch and amount mismatch rejected with HTTP 400; matching webhook confirms order`);
+        `Payload mismatches rejected; matching event confirmed only after a mocked provider capture response`);
       assert.ok(true);
     }
 

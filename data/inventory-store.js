@@ -36,3 +36,4 @@ export const createCartOrder = store.createCartOrder;
 export const quoteCart = store.quoteCart;
 export const resetTestStore = store.resetTestStore;
 export const updateRazorpayOrderId = store.updateRazorpayOrderId;
+export const closeStore = store.closeStore || (() => Promise.resolve());

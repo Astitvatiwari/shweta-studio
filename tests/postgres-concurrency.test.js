@@ -11,9 +11,11 @@ if (!testUrl) {
   console.log('Skipped PostgreSQL multi-connection tests: TEST_DATABASE_URL is not configured.');
   process.exit(0);
 }
-const databaseName = decodeURIComponent(new URL(testUrl).pathname.replace(/^\//, ''));
-if (!/_test$/i.test(databaseName) || /prod/i.test(databaseName)) {
-  throw new Error('Refusing destructive concurrency tests: TEST_DATABASE_URL must point to a dedicated database whose name ends in _test.');
+const parsedTestUrl = new URL(testUrl);
+const databaseName = decodeURIComponent(parsedTestUrl.pathname.replace(/^\//, ''));
+if (!databaseName.toLowerCase().endsWith('_test') || /prod/i.test(databaseName) ||
+    !['localhost', '127.0.0.1', '::1', '[::1]'].includes(parsedTestUrl.hostname)) {
+  throw new Error('Refusing destructive concurrency tests: TEST_DATABASE_URL must point to a loopback-only database whose name ends in _test.');
 }
 
 const schema = `shweta_test_${crypto.randomBytes(6).toString('hex')}`;

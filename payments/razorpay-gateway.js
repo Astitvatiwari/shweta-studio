@@ -1,4 +1,5 @@
 const RAZORPAY_ORDERS_URL = 'https://api.razorpay.com/v1/orders';
+const RAZORPAY_PAYMENTS_URL = 'https://api.razorpay.com/v1/payments';
 
 function networkFailure(error) {
   let current = error;
@@ -95,6 +96,63 @@ export async function createRazorpayGatewayOrder({ amountPaise, currency, receip
   }
   if (!data || typeof data.id !== 'string' || !/^order_[A-Za-z0-9]+$/.test(data.id)) {
     const error = new Error('Razorpay returned an invalid order response.');
+    error.gatewayCategory = 'invalid_response';
+    error.statusCode = response.status;
+    throw error;
+  }
+  return data;
+}
+
+/** Retrieve a payment from Razorpay using server-only credentials. */
+export async function fetchRazorpayPayment(paymentId) {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  if (!keyId || !keySecret) {
+    const error = new Error('Razorpay credentials are not configured.');
+    error.gatewayCategory = 'credentials';
+    throw error;
+  }
+  if (typeof paymentId !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(paymentId)) {
+    const error = new Error('Razorpay payment identifier is invalid.');
+    error.gatewayCategory = 'invalid_payment_id';
+    throw error;
+  }
+
+  let response;
+  try {
+    response = await fetch(`${RAZORPAY_PAYMENTS_URL}/${encodeURIComponent(paymentId)}`, {
+      method: 'GET',
+      headers: {
+        Authorization: 'Basic ' + Buffer.from(`${keyId}:${keySecret}`).toString('base64'),
+        Accept: 'application/json'
+      },
+      signal: AbortSignal.timeout(10000)
+    });
+  } catch (cause) {
+    const details = networkFailure(cause);
+    const error = new Error('Razorpay payment lookup failed.');
+    error.gatewayCategory = details.category;
+    error.gatewayErrorCode = details.code;
+    throw error;
+  }
+
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    const error = new Error('Razorpay returned an unreadable payment response.');
+    error.gatewayCategory = 'invalid_response';
+    error.statusCode = response.status;
+    throw error;
+  }
+  if (!response.ok) {
+    const error = new Error('Razorpay rejected the payment lookup.');
+    error.gatewayCategory = 'provider_http';
+    error.statusCode = response.status;
+    throw error;
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data) || data.id !== paymentId) {
+    const error = new Error('Razorpay returned an invalid payment response.');
     error.gatewayCategory = 'invalid_response';
     error.statusCode = response.status;
     throw error;

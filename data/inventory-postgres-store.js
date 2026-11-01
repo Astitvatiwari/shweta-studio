@@ -498,7 +498,7 @@ export function createPostgresStore({ query = pool.query.bind(pool), transaction
   return { getInventory, getSanitizedInventory, getOrders, saveStoreTransaction, cleanExpiredReservations,
     updateOrderPaymentStatus, cancelCheckoutReservation, initializeInventory, getArtworkInventory,
     getSanitizedArtworkInventory, purchaseOriginal, commissionArtwork, createCartOrder, quoteCart,
-    resetTestStore, updateRazorpayOrderId };
+    resetTestStore, updateRazorpayOrderId, close: () => pool.end() };
 }
 
 const store = createPostgresStore();
@@ -518,4 +518,5 @@ export const createCartOrder = store.createCartOrder;
 export const quoteCart = store.quoteCart;
 export const resetTestStore = store.resetTestStore;
 export const updateRazorpayOrderId = store.updateRazorpayOrderId;
+export const closeStore = store.close;
 export { calculatePreparationTime, getAuthoritativePrice, sanitizeStorefrontItem };
