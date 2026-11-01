@@ -133,7 +133,7 @@ try {
       const paymentId = decodeURIComponent(requestUrl.pathname.slice('/v1/payments/'.length));
       const result = providerResults.get(paymentId);
       if (result?.throw) throw result.throw;
-      return new Response(JSON.stringify(result?.body || { error: 'not found' }), { status: result?.status || 404 });
+      return new Response(JSON.stringify(result?.body || { error: 'not found' }), { status: result ? (result.status ?? 200) : 404 });
     }
     throw new Error('Unexpected external network request blocked by the webhook integration test.');
   };
