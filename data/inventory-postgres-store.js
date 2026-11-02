@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import pg from 'pg';
-import artworks from '../artworks.js';
+import { runtimeCatalog, stagingTestFixtureConfig } from './runtime-catalog.js';
+import { verifyStagingTestDatabaseIdentity } from './staging-test-fixture.js';
 import { postgresConnectionOptions } from './postgres-connection.js';
 import {
   calculatePreparationTime,
@@ -9,12 +10,15 @@ import {
 } from './inventory-file-store.js';
 
 const { Pool } = pg;
-if (!process.env.DATABASE_URL) {
+const connectionUrl = stagingTestFixtureConfig.enabled
+  ? stagingTestFixtureConfig.databaseUrl
+  : process.env.DATABASE_URL;
+if (!connectionUrl) {
   throw new Error('DATABASE_URL is required when STORAGE_BACKEND=postgres.');
 }
 export const CHECKOUT_RESERVATION_TTL_MS = parseInt(process.env.CHECKOUT_RESERVATION_TTL_MS || '900000', 10);
 const pool = new Pool({
-  ...postgresConnectionOptions(process.env.DATABASE_URL),
+  ...postgresConnectionOptions(connectionUrl),
   max: Number.parseInt(process.env.PGPOOL_MAX || '10', 10),
   connectionTimeoutMillis: 10000,
   idleTimeoutMillis: 30000
@@ -114,7 +118,12 @@ async function defaultTransaction(work) {
 
 // Injection point supports isolated PostgreSQL-compatible tests without creating a
 // hosted database. Production always uses a real node-postgres Pool transaction.
-export function createPostgresStore({ query = pool.query.bind(pool), transaction = defaultTransaction, catalog = artworks } = {}) {
+export function createPostgresStore({ query = pool.query.bind(pool), transaction = defaultTransaction,
+  catalog = runtimeCatalog, fixtureConfig = stagingTestFixtureConfig } = {}) {
+  async function verifyDatabaseIdentity() {
+    return verifyStagingTestDatabaseIdentity(query, fixtureConfig, { requireFixtureOnlyData: true });
+  }
+
   async function seedCatalog(client) {
     const records = catalog.map(catalogRecord);
     await client.query(
@@ -498,7 +507,7 @@ export function createPostgresStore({ query = pool.query.bind(pool), transaction
   return { getInventory, getSanitizedInventory, getOrders, saveStoreTransaction, cleanExpiredReservations,
     updateOrderPaymentStatus, cancelCheckoutReservation, initializeInventory, getArtworkInventory,
     getSanitizedArtworkInventory, purchaseOriginal, commissionArtwork, createCartOrder, quoteCart,
-    resetTestStore, updateRazorpayOrderId, close: () => pool.end() };
+    resetTestStore, updateRazorpayOrderId, verifyDatabaseIdentity, close: () => pool.end() };
 }
 
 const store = createPostgresStore();
@@ -518,5 +527,6 @@ export const createCartOrder = store.createCartOrder;
 export const quoteCart = store.quoteCart;
 export const resetTestStore = store.resetTestStore;
 export const updateRazorpayOrderId = store.updateRazorpayOrderId;
+export const verifyDatabaseIdentity = store.verifyDatabaseIdentity;
 export const closeStore = store.close;
 export { calculatePreparationTime, getAuthoritativePrice, sanitizeStorefrontItem };

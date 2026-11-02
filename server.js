@@ -3,7 +3,12 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
-import artworks from './artworks.js';
+import { runtimeCatalog, stagingTestFixtureConfig } from './data/runtime-catalog.js';
+import {
+  filterPublicInventory,
+  isStagingTestFixtureCode,
+  validateStagingTestFixtureCart
+} from './data/staging-test-fixture.js';
 import { safeAdminKeyMatch, safeClientError, verifyNetlifyProxySignature } from './security/request-security.js';
 import { recordPaymentFailure } from './payments/payment-failure-webhook.js';
 import { createRazorpayGatewayOrder, getRazorpayFailureLogFields, resolveRazorpayOrderFailure, verifyRazorpayCapturedPayment } from './payments/razorpay-gateway.js';
@@ -18,14 +23,15 @@ import {
   updateOrderPaymentStatus,
   cancelCheckoutReservation,
   resetTestStore,
-  updateRazorpayOrderId
+  updateRazorpayOrderId,
+  verifyDatabaseIdentity
 } from './data/inventory-store.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const PORT = process.env.PORT || 3000;
 
-const validInventoryCodes = new Set(artworks.map(a => a.inventoryCode.toUpperCase()));
+const validInventoryCodes = new Set(runtimeCatalog.map(a => a.inventoryCode.toUpperCase()));
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -137,6 +143,7 @@ function sendJson(res, statusCode, data) {
 }
 
 function allowedOrigins() {
+  if (stagingTestFixtureConfig.enabled) return new Set([stagingTestFixtureConfig.siteUrl]);
   const configured = process.env.STOREFRONT_ORIGINS || 'https://shwetastudio.com';
   const values = configured.split(',').map(value => value.trim()).filter(Boolean);
   if (process.env.NODE_ENV === 'test') values.push(`http://localhost:${PORT}`);
@@ -368,9 +375,14 @@ async function handleRequest(req, res) {
 
   const isPaymentWebhook = req.method === 'POST' && pathname === '/api/payment/webhook';
   if (process.env.NODE_ENV === 'production' && pathname.startsWith('/api/') && !isPaymentWebhook) {
-    const proxySecret = process.env.NETLIFY_PROXY_SIGNING_SECRET;
+    const proxySecret = stagingTestFixtureConfig.enabled
+      ? stagingTestFixtureConfig.proxySecret
+      : process.env.NETLIFY_PROXY_SIGNING_SECRET;
+    const expectedSiteUrl = stagingTestFixtureConfig.enabled
+      ? stagingTestFixtureConfig.siteUrl
+      : (process.env.NETLIFY_SITE_URL || '');
     const validProxy = proxySecret && verifyNetlifyProxySignature(
-      req.headers['x-nf-sign'], proxySecret, { expectedSiteUrl: process.env.NETLIFY_SITE_URL || '' }
+      req.headers['x-nf-sign'], proxySecret, { expectedSiteUrl }
     );
     if (!validProxy) return sendJson(res, 403, { success: false, error: 'Request could not be authenticated.' });
   }
@@ -395,7 +407,7 @@ async function handleRequest(req, res) {
 
   // 1. GET /api/inventory - Storefront sanitized inventory (with or without trailing slash)
   if (req.method === 'GET' && (pathname === '/api/inventory' || pathname === '/api/inventory/')) {
-    const inv = await getSanitizedInventory();
+    const inv = filterPublicInventory(await getSanitizedInventory());
     return sendJson(res, 200, { success: true, inventory: inv });
   }
 
@@ -410,7 +422,9 @@ async function handleRequest(req, res) {
       const inv = await getSanitizedInventory();
       return sendJson(res, 200, { success: true, inventory: inv });
     }
-    const item = await getSanitizedArtworkInventory(code);
+    const item = isStagingTestFixtureCode(code)
+      ? null
+      : await getSanitizedArtworkInventory(code);
     if (!item) {
       return sendJson(res, 404, { success: false, error: `Artwork code ${code} not found.` });
     }
@@ -427,6 +441,9 @@ async function handleRequest(req, res) {
       if (codeError) {
         const isNotFound = codeError.includes('not recognized');
         return sendJson(res, isNotFound ? 404 : 400, { success: false, error: codeError });
+      }
+      if (isStagingTestFixtureCode(inventoryCode)) {
+        return sendJson(res, 400, { success: false, error: 'Synthetic staging items require the isolated checkout flow.' });
       }
 
       const customerError = validateCustomer(customer, true);
@@ -471,6 +488,9 @@ async function handleRequest(req, res) {
         const isNotFound = codeError.includes('not recognized');
         return sendJson(res, isNotFound ? 404 : 400, { success: false, error: codeError });
       }
+      if (isStagingTestFixtureCode(inventoryCode)) {
+        return sendJson(res, 400, { success: false, error: 'Synthetic staging items cannot be commissioned.' });
+      }
 
       const customerError = validateCustomer(customer, false);
       if (customerError) {
@@ -511,6 +531,8 @@ async function handleRequest(req, res) {
       }
       const itemError = validateCartItems(body.items, { quote: true });
       if (itemError) return sendJson(res, 400, { success: false, error: itemError });
+      const fixtureCartError = validateStagingTestFixtureCart(body.items, stagingTestFixtureConfig.enabled);
+      if (fixtureCartError) return sendJson(res, 400, { success: false, error: fixtureCartError });
       const quote = await quoteCart({ customer: body.customer, country: body.country, items: body.items });
       if (!quote.success) {
         return sendJson(res, quote.statusCode || 400, quote);
@@ -533,6 +555,8 @@ async function handleRequest(req, res) {
       }
       const itemError = validateCartItems(items);
       if (itemError) return sendJson(res, 400, { success: false, error: itemError });
+      const fixtureCartError = validateStagingTestFixtureCart(items, stagingTestFixtureConfig.enabled);
+      if (fixtureCartError) return sendJson(res, 400, { success: false, error: fixtureCartError });
       if (paymentMethod !== undefined && !['studio_standard', 'razorpay'].includes(paymentMethod)) {
         return sendJson(res, 400, { success: false, error: 'Invalid payment method.' });
       }
@@ -1064,18 +1088,21 @@ const server = http.createServer((req, res) => {
 });
 
 export function startServer(port = PORT) {
-  return new Promise((resolve, reject) => {
+  return verifyDatabaseIdentity().then(() => new Promise((resolve, reject) => {
     server.listen(port, () => {
       resolve(server);
     });
     server.on('error', reject);
-  });
+  }));
 }
 
 // Auto-run if executed directly
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   startServer(PORT).then(() => {
     console.log(`[SHWETA STUDIO SERVER] Running at http://localhost:${PORT}`);
+  }).catch(() => {
+    console.error('[SHWETA STUDIO SERVER] Startup verification failed; server was not started.');
+    process.exitCode = 1;
   });
 }
 
