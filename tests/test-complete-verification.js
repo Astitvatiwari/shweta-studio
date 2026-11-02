@@ -16,14 +16,20 @@ async function testComplete() {
 
   const failedRequests = [];
   const consoleErrors = [];
+  const expectedRetryableVerification503ByPage = new WeakMap();
   let expectedUnavailableOrder404ConsoleError = false;
 
   const watchBrowserPage = target => {
     target.on('console', msg => {
       if (msg.type() === 'error') {
+        const retryableState = expectedRetryableVerification503ByPage.get(target);
+        const expectedRetryableVerificationConsoleError = retryableState?.consolePending &&
+          /Failed to load resource: the server responded with a status of 503 \(Service Unavailable\)/i.test(msg.text());
         const expectedUnavailableOrder404 = expectedUnavailableOrder404ConsoleError &&
           /Failed to load resource: the server responded with a status of 404/i.test(msg.text());
-        if (expectedUnavailableOrder404) {
+        if (expectedRetryableVerificationConsoleError) {
+          retryableState.consolePending = false;
+        } else if (expectedUnavailableOrder404) {
           expectedUnavailableOrder404ConsoleError = false;
         } else {
           consoleErrors.push(msg.text());
@@ -40,10 +46,20 @@ async function testComplete() {
     });
 
     target.on('response', res => {
+      const responseUrl = new URL(res.url());
+      const retryableState = expectedRetryableVerification503ByPage.get(target);
+      const expectedRetryableVerificationResponse = res.status() === 503 &&
+        res.request().method() === 'POST' &&
+        responseUrl.pathname === '/api/checkout/verify-payment' &&
+        retryableState?.responsePending;
+      if (expectedRetryableVerificationResponse) {
+        retryableState.responsePending = false;
+        retryableState.consolePending = true;
+      }
       const expectedMissingOrder = res.status() === 404 &&
         /\/api\/checkout\/order-status\?orderId=ORD-BROWSER-MISSING(?:&|$)/.test(res.url());
       if (expectedMissingOrder) expectedUnavailableOrder404ConsoleError = true;
-      if (res.status() >= 400 && !expectedMissingOrder && !res.url().includes('google-analytics') && !res.url().includes('googletagmanager')) {
+      if (res.status() >= 400 && !expectedMissingOrder && !expectedRetryableVerificationResponse && !res.url().includes('google-analytics') && !res.url().includes('googletagmanager')) {
         failedRequests.push({ url: res.url(), status: res.status() });
         console.log(`[NET ERROR]: ${res.status()} ${res.url()}`);
       }
@@ -261,6 +277,10 @@ async function testComplete() {
       contentType: 'application/json',
       body: JSON.stringify({ success: true, status: 'payment_pending' })
     }));
+    expectedRetryableVerification503ByPage.set(retryablePaymentPage, {
+      responsePending: true,
+      consolePending: false
+    });
     await retryablePaymentPage.goto('http://localhost:3000/checkout.html', { waitUntil: 'networkidle' });
     await retryablePaymentPage.evaluate(() => {
       window.Razorpay = function (options) {
