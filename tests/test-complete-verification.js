@@ -289,6 +289,16 @@ async function testComplete() {
     // cancellation tab alive lets Chromium finish any remaining modal requests.
     const checkoutSuccessPage = await browserContext.newPage();
     watchBrowserPage(checkoutSuccessPage);
+    // The retryable verification case intentionally leaves its real synthetic
+    // checkout hold active. Use a different artwork for the independent demo
+    // checkout so this browser regression does not compete with that hold.
+    await checkoutSuccessPage.goto('http://localhost:3000/paintings.html', { waitUntil: 'networkidle' });
+    await checkoutSuccessPage.evaluate(() => localStorage.removeItem('shweta_studio_cart_v1'));
+    const isolatedArtworkButton = checkoutSuccessPage.locator('button[onclick*="SS-PT-002"][onclick*="handleCardAddToCart"]').first();
+    if (await isolatedArtworkButton.count() === 0) {
+      throw new Error('Independent demo checkout artwork SS-PT-002 was not available in the browser fixture.');
+    }
+    await isolatedArtworkButton.click();
     await checkoutSuccessPage.goto('http://localhost:3000/checkout.html', { waitUntil: 'networkidle' });
     for (const [field, value] of Object.entries(customer)) {
       await checkoutSuccessPage.locator(`#checkout-form [name="${field}"]`).fill(value);
