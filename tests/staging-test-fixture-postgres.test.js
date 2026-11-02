@@ -44,7 +44,7 @@ const fixtureEnv = {
   STORAGE_BACKEND: 'postgres',
   SHWETA_RUNTIME_MODE: 'staging-fixture',
   SHWETA_STAGING_TEST_FIXTURE: 'enabled',
-  RAZORPAY_KEY_ID: 'rzp_test_ci_fixture',
+  RAZORPAY_KEY_ID: 'rzp_test_cifixture',
   RAZORPAY_KEY_SECRET: 'ci_test_secret_only',
   RAZORPAY_WEBHOOK_SECRET: 'ci_test_webhook_only',
   STAGING_TEST_NETLIFY_PROXY_SIGNING_SECRET: `ci-only-${randomBytes(24).toString('hex')}`,
