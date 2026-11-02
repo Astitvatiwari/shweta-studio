@@ -39,9 +39,80 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:all
-      - run: npm run test:staging-fixture-postgres
+      - name: Start disposable TLS PostgreSQL fixture
+        run: |
+          set -euo pipefail
+          tls_dir="$RUNNER_TEMP/shweta-fixture-postgres-tls"
+          mkdir -p "$tls_dir"
+          openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 1 \
+            -keyout "$tls_dir/ca.key" -out "$tls_dir/ca.crt" \
+            -subj "/CN=Shweta CI PostgreSQL Test CA" \
+            -addext "basicConstraints=critical,CA:TRUE" \
+            -addext "keyUsage=critical,keyCertSign,cRLSign"
+          openssl req -newkey rsa:2048 -sha256 -nodes \
+            -keyout "$tls_dir/server.key" -out "$tls_dir/server.csr" \
+            -subj "/CN=localhost"
+          printf 'subjectAltName=DNS:localhost,IP:127.0.0.1\nextendedKeyUsage=serverAuth\nkeyUsage=digitalSignature,keyEncipherment\n' > "$tls_dir/server.ext"
+          openssl x509 -req -sha256 -days 1 -in "$tls_dir/server.csr" \
+            -CA "$tls_dir/ca.crt" -CAkey "$tls_dir/ca.key" -CAcreateserial \
+            -extfile "$tls_dir/server.ext" -out "$tls_dir/server.crt"
+          rm -f "$tls_dir/ca.key" "$tls_dir/server.csr" "$tls_dir/server.ext" "$tls_dir/ca.srl"
+          cat > "$tls_dir/Dockerfile" <<'EOF'
+          FROM postgres:16
+          COPY server.crt /etc/ssl/certs/shweta-ci-postgres.crt
+          COPY server.key /etc/ssl/private/shweta-ci-postgres.key
+          RUN chown postgres:postgres /etc/ssl/certs/shweta-ci-postgres.crt /etc/ssl/private/shweta-ci-postgres.key \
+              && chmod 0644 /etc/ssl/certs/shweta-ci-postgres.crt \
+              && chmod 0600 /etc/ssl/private/shweta-ci-postgres.key
+          CMD ["postgres", "-c", "ssl=on", "-c", "ssl_cert_file=/etc/ssl/certs/shweta-ci-postgres.crt", "-c", "ssl_key_file=/etc/ssl/private/shweta-ci-postgres.key"]
+          EOF
+          docker build --quiet -t shweta-fixture-postgres-tls:ci "$tls_dir"
+          docker run --detach --name shweta-fixture-postgres-tls \
+            --publish 127.0.0.1:5433:5432 \
+            --env POSTGRES_DB=shweta_studio_test \
+            --env POSTGRES_USER=postgres \
+            --env POSTGRES_PASSWORD=postgres \
+            shweta-fixture-postgres-tls:ci
+          ready=false
+          for attempt in $(seq 1 30); do
+            if docker exec shweta-fixture-postgres-tls pg_isready -U postgres -d shweta_studio_test >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = true
+          export NODE_ENV=production PGSSLMODE=require NODE_EXTRA_CA_CERTS="$tls_dir/ca.crt"
+          node --input-type=module <<'NODE'
+          import pg from 'pg';
+          import { postgresConnectionOptions } from './data/postgres-connection.js';
+          const pool = new pg.Pool({
+            ...postgresConnectionOptions('postgres://postgres:postgres@localhost:5433/shweta_studio_test'),
+            max: 1,
+            connectionTimeoutMillis: 5000
+          });
+          try {
+            await pool.query('SELECT 1');
+            console.log('Disposable PostgreSQL TLS chain and localhost certificate verification passed.');
+          } finally {
+            await pool.end();
+          }
+          NODE
+      - name: Run PostgreSQL fixture isolation tests
+        run: npm run test:staging-fixture-postgres
+        env:
+          TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5433/shweta_studio_test
+          NODE_EXTRA_CA_CERTS: ${{ runner.temp }}/shweta-fixture-postgres-tls/ca.crt
+          PGSSLMODE: require
       - run: npx playwright install --with-deps chromium
       - run: node tests/test-complete-verification.js
         env:
           DATA_DIR: ${{ runner.temp }}/shweta-studio-browser-data
           ALLOW_DEMO_CHECKOUT: 'true'
+      - name: Stop disposable TLS PostgreSQL fixture
+        if: always()
+        run: |
+          docker rm -f shweta-fixture-postgres-tls >/dev/null 2>&1 || true
+          docker image rm shweta-fixture-postgres-tls:ci >/dev/null 2>&1 || true
+          rm -rf "$RUNNER_TEMP/shweta-fixture-postgres-tls"
+          test ! -e "$RUNNER_TEMP/shweta-fixture-postgres-tls"

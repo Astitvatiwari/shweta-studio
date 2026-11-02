@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { postgresConnectionOptions } from '../data/postgres-connection.js';
 import {
   resolveStagingTestFixtureConfig,
   STAGING_TEST_DATABASE_NAME,
@@ -27,7 +28,8 @@ if (!['localhost', '127.0.0.1', '::1'].includes(adminConnection.hostname) ||
   throw new Error('Refusing fixture integration: TEST_DATABASE_URL must be loopback-only, end in _test, and run in CI.');
 }
 
-const adminPool = new Pool({ connectionString: adminUrl, ssl: false, max: 2 });
+const testTlsOptions = connectionString => postgresConnectionOptions(connectionString, { sslMode: 'require', production: true });
+const adminPool = new Pool({ ...testTlsOptions(adminUrl), max: 2 });
 const roleName = 'shweta_fixture_ci';
 const otherDatabaseName = 'shweta_fixture_other_test';
 const rolePassword = randomBytes(24).toString('hex');
@@ -54,7 +56,7 @@ const fixtureEnv = {
   STAGING_TEST_DATABASE_NAME: STAGING_TEST_DATABASE_NAME,
   STAGING_TEST_DATABASE_USER: roleName,
   STAGING_TEST_DATABASE_IDENTITY: identity,
-  PGSSLMODE: 'disable'
+  PGSSLMODE: 'require'
 };
 let createdRole = false;
 const createdDatabases = new Set();
@@ -108,7 +110,7 @@ try {
     );
   }
 
-  fixturePool = new Pool({ connectionString: config.databaseUrl, ssl: false, max: 1 });
+  fixturePool = new Pool({ ...testTlsOptions(config.databaseUrl), max: 1 });
   await assert.rejects(
     verifyStagingTestDatabaseIdentity(fixturePool.query.bind(fixturePool), config),
     /identity could not be independently verified/i,
@@ -151,7 +153,7 @@ try {
 
   const otherUrl = new URL(fixtureUrl);
   otherUrl.pathname = `/${otherDatabaseName}`;
-  const otherPool = new Pool({ connectionString: otherUrl.toString(), ssl: false, max: 1, connectionTimeoutMillis: 3000 });
+  const otherPool = new Pool({ ...testTlsOptions(otherUrl.toString()), max: 1, connectionTimeoutMillis: 3000 });
   try {
     await assert.rejects(otherPool.query('SELECT current_database()'),
       /permission denied for database/i,
