@@ -298,7 +298,19 @@ async function testComplete() {
     if (await isolatedArtworkButton.count() === 0) {
       throw new Error('Independent demo checkout artwork SS-PT-002 was not available in the browser fixture.');
     }
+    const isolatedInventoryResponse = checkoutSuccessPage.waitForResponse(response => {
+      const url = new URL(response.url());
+      return response.request().method() === 'GET' && url.pathname === '/api/inventory/SS-PT-002';
+    });
     await isolatedArtworkButton.click();
+    const inventoryResponse = await isolatedInventoryResponse;
+    if (!inventoryResponse.ok()) {
+      throw new Error(`Independent artwork inventory verification returned HTTP ${inventoryResponse.status()}.`);
+    }
+    await checkoutSuccessPage.waitForFunction(() => {
+      const cart = JSON.parse(localStorage.getItem('shweta_studio_cart_v1') || '[]');
+      return cart.some(item => item.inventoryCode === 'SS-PT-002' && item.purchaseType === 'original');
+    });
     await checkoutSuccessPage.goto('http://localhost:3000/checkout.html', { waitUntil: 'networkidle' });
     for (const [field, value] of Object.entries(customer)) {
       await checkoutSuccessPage.locator(`#checkout-form [name="${field}"]`).fill(value);
