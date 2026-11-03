@@ -20,6 +20,9 @@ for secret in "$ADMIN_PASSWORD" "$APP_PASSWORD" "$POC_PASSWORD"; do
 done
 
 cleanup() {
+  local exit_code=$?
+  local cleanup_failed=false
+  trap - EXIT
   set +e
   local admin_conn="host=127.0.0.1 port=5433 dbname=postgres user=postgres sslmode=verify-full sslrootcert=$WORK_DIR/ca.crt connect_timeout=3"
   if docker inspect "$MAIN_CONTAINER" >/dev/null 2>&1 && [[ -f "$WORK_DIR/ca.crt" ]]; then
@@ -38,9 +41,39 @@ cleanup() {
   docker rm -fv "$MAIN_CONTAINER" "$WRONG_CA_CONTAINER" >/dev/null 2>&1
   docker image rm "$APP_IMAGE" "$PG_MAIN_IMAGE" "$PG_WRONG_CA_IMAGE" >/dev/null 2>&1
   rm -rf "$WORK_DIR"
-  if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
-    echo "Disposable PostgreSQL containers, roles, databases, images, passwords, and certificates were cleaned." >> "$GITHUB_STEP_SUMMARY"
+  if ! docker info >/dev/null 2>&1; then
+    echo "Cleanup verification failed: Docker daemon is unavailable for post-cleanup inspection." >&2
+    cleanup_failed=true
+  else
+    for container in "$MAIN_CONTAINER" "$WRONG_CA_CONTAINER"; do
+      if docker inspect "$container" >/dev/null 2>&1; then
+        echo "Cleanup verification failed: container remains: $container" >&2
+        cleanup_failed=true
+      fi
+    done
+    for image in "$APP_IMAGE" "$PG_MAIN_IMAGE" "$PG_WRONG_CA_IMAGE"; do
+      if docker image inspect "$image" >/dev/null 2>&1; then
+        echo "Cleanup verification failed: image remains: $image" >&2
+        cleanup_failed=true
+      fi
+    done
   fi
+  if [[ -e "$WORK_DIR" ]]; then
+    echo "Cleanup verification failed: temporary certificate directory remains: $WORK_DIR" >&2
+    cleanup_failed=true
+  fi
+  if [[ "$cleanup_failed" == true ]]; then
+    if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+      echo "- Cleanup verification failed; inspect the job log for remaining disposable resources." >> "$GITHUB_STEP_SUMMARY"
+    fi
+    exit_code=1
+  else
+    echo "Cleanup verified: disposable containers and images are absent; temporary certificates are removed and generated passwords existed only in this process."
+    if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+      echo "- Cleanup verified: disposable containers and images are absent; certificate files were removed and generated passwords were process-local." >> "$GITHUB_STEP_SUMMARY"
+    fi
+  fi
+  exit "$exit_code"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
