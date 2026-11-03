@@ -6,10 +6,11 @@ import {
   STAGING_TEST_DATABASE_IDENTITY_SCHEMA,
   STAGING_TEST_DATABASE_IDENTITY_TABLE,
   STAGING_TEST_DATABASE_NAME,
+  verifyStagingTestDatabaseIdentity,
   verifyStagingTestDatabaseRole
 } from '../data/staging-test-fixture.js';
 
-const config = resolveStagingTestFixtureConfig();
+const config = resolveStagingTestFixtureConfig(process.env, { purpose: 'migration' });
 if (!config.enabled) {
   throw new Error('Refusing to initialize a database without explicit staging-fixture gates.');
 }
@@ -29,6 +30,10 @@ try {
     }
     await verifyStagingTestDatabaseRole(client.query.bind(client), config.databaseUser);
 
+    if (config.twoRole) {
+      // Provisioning creates the immutable marker; neither operational login can rewrite it.
+      await verifyStagingTestDatabaseIdentity(client.query.bind(client), config);
+    }
     const markerAlreadyExists = await assertStagingTestDatabaseIsEmpty(client.query.bind(client));
     if (markerAlreadyExists) {
       const existingMarker = await client.query(
@@ -42,6 +47,7 @@ try {
       await client.query('COMMIT');
       console.log('Dedicated staging test database identity is already initialized and verified.');
     } else {
+      if (config.twoRole) throw new Error('Provisioning must establish the identity marker before initialization.');
       await client.query(`CREATE SCHEMA ${STAGING_TEST_DATABASE_IDENTITY_SCHEMA}`);
       await client.query(`CREATE TABLE ${STAGING_TEST_DATABASE_IDENTITY_SCHEMA}.${STAGING_TEST_DATABASE_IDENTITY_TABLE} (
         identity_key text PRIMARY KEY,

@@ -11,7 +11,7 @@ import {
 const here = path.dirname(fileURLToPath(import.meta.url));
 const migrationsDir = path.resolve(here, '../db/migrations');
 
-const fixtureConfig = resolveStagingTestFixtureConfig();
+const fixtureConfig = resolveStagingTestFixtureConfig(process.env, { purpose: 'migration' });
 const migrationUrl = fixtureConfig.enabled
   ? fixtureConfig.databaseUrl
   : (process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL);
@@ -70,6 +70,11 @@ try {
         applied_at timestamptz NOT NULL DEFAULT now()
       )
     `);
+  }
+
+  if (fixtureConfig.twoRole) {
+    const app = '"' + fixtureConfig.applicationUser.replaceAll('"', '""') + '"';
+    await pool.query(`REVOKE ALL ON schema_migrations FROM ${app}; GRANT SELECT ON schema_migrations TO ${app}`);
   }
 
   for (const file of files) {

@@ -9,6 +9,7 @@ SUFFIX="${GITHUB_RUN_ID:-local}-${PG_MAJOR}"
 MAIN_CONTAINER="shweta-pg-native-main-${SUFFIX}"
 WRONG_CA_CONTAINER="shweta-pg-native-wrong-ca-${SUFFIX}"
 APP_IMAGE="shweta-pg-native-app:${SUFFIX}"
+RUNTIME_IMAGE="shweta-runtime:${SUFFIX}"
 PG_MAIN_IMAGE="shweta-pg-native-postgres-main:${SUFFIX}"
 PG_WRONG_CA_IMAGE="shweta-pg-native-postgres-wrong-ca:${SUFFIX}"
 
@@ -39,7 +40,7 @@ cleanup() {
       -c 'DROP ROLE IF EXISTS shweta_fixture_ci;' >/dev/null 2>&1
   fi
   docker rm -fv "$MAIN_CONTAINER" "$WRONG_CA_CONTAINER" >/dev/null 2>&1
-  docker image rm "$APP_IMAGE" "$PG_MAIN_IMAGE" "$PG_WRONG_CA_IMAGE" >/dev/null 2>&1
+  docker image rm "$APP_IMAGE" "$RUNTIME_IMAGE" "$PG_MAIN_IMAGE" "$PG_WRONG_CA_IMAGE" >/dev/null 2>&1
   rm -rf "$WORK_DIR"
   if ! docker info >/dev/null 2>&1; then
     echo "Cleanup verification failed: Docker daemon is unavailable for post-cleanup inspection." >&2
@@ -51,7 +52,7 @@ cleanup() {
         cleanup_failed=true
       fi
     done
-    for image in "$APP_IMAGE" "$PG_MAIN_IMAGE" "$PG_WRONG_CA_IMAGE"; do
+    for image in "$APP_IMAGE" "$RUNTIME_IMAGE" "$PG_MAIN_IMAGE" "$PG_WRONG_CA_IMAGE"; do
       if docker image inspect "$image" >/dev/null 2>&1; then
         echo "Cleanup verification failed: image remains: $image" >&2
         cleanup_failed=true
@@ -235,7 +236,7 @@ docker run --rm --network host \
     unset DATABASE_URL MIGRATION_DATABASE_URL
     PG_NATIVE_ADAPTER_CI=true PG_NATIVE_ADAPTER_HOST=phase6-main.neon.tech \
       TEST_DATABASE_URL="postgres://postgres:'"$ADMIN_PASSWORD"'@127.0.0.1:5433/shweta_studio_test?sslmode=verify-full&sslrootcert=/run/ci/ca.crt" \
-      npm run test:staging-fixture-postgres
+      node tests/two-role-fixture.test.js
     PG_NATIVE_ADAPTER_CI=true TEST_DATABASE_URL="postgres://postgres:'"$ADMIN_PASSWORD"'@127.0.0.1:5433/shweta_native_app_test?sslmode=verify-full&sslrootcert=/run/ci/ca.crt" \
       npm run test:webhook-postgres
   '
@@ -258,6 +259,15 @@ CI=true NODE_ENV=test PG_NATIVE_POC_SUITE=pg-native \
   PG_NATIVE_POC_SERVER_KEY="$WORK_DIR/server-main.key" \
   PG_NATIVE_POC_SERVER_CERT="$WORK_DIR/server-main.crt" \
   node tests/pg-native-channel-binding-poc.test.js
+
+echo "Building and exercising the deployable runtime image."
+docker build -t "$RUNTIME_IMAGE" .
+cat /etc/ssl/certs/ca-certificates.crt "$WORK_DIR/ca.crt" > "$WORK_DIR/ca-bundle.crt"
+chmod 755 "$WORK_DIR"
+chmod 644 "$WORK_DIR/ca-bundle.crt"
+CI=true PGSSLMODE=require NODE_EXTRA_CA_CERTS="$WORK_DIR/ca.crt" \
+  TEST_DATABASE_URL="$ADMIN_HOST_URL" RUNTIME_IMAGE="$RUNTIME_IMAGE" RUNTIME_CERT_DIR="$WORK_DIR" \
+  node tests/two-role-fixture.test.js
 
 echo "Running Chromium browser verification."
 CI=true NODE_ENV=test ALLOW_DEMO_CHECKOUT=true \

@@ -47,7 +47,7 @@ function parseDatabaseUrl(value) {
   };
 }
 
-export function resolveStagingTestFixtureConfig(env = process.env) {
+export function resolveStagingTestFixtureConfig(env = process.env, { purpose = 'runtime' } = {}) {
   const modeRequested = env.SHWETA_RUNTIME_MODE === 'staging-fixture';
   const fixtureRequested = env.SHWETA_STAGING_TEST_FIXTURE === 'enabled';
   if (!modeRequested && !fixtureRequested) return Object.freeze({ enabled: false });
@@ -102,7 +102,40 @@ export function resolveStagingTestFixtureConfig(env = process.env) {
     fail('a dedicated database identity marker is required.');
   }
 
+  if (!['runtime', 'migration'].includes(purpose)) fail('unknown fixture purpose.');
+  const twoRole = env.STAGING_TEST_ROLE_MODE === 'separate';
+  if (env.STAGING_TEST_ROLE_MODE && !twoRole) fail('unknown fixture role mode.');
+  if (String(env.DATABASE_PROVIDER || '').trim().toLowerCase() === 'neon' && !twoRole) fail('Neon fixtures require separate roles.');
+  if (!twoRole && (env.STAGING_TEST_MIGRATION_USER || env.STAGING_TEST_MIGRATION_URL)) fail('separate role configuration is incomplete.');
+  if (twoRole) {
+    const validateEndpoint = candidate => {
+      if (!candidate.password || candidate.hash || [...candidate.searchParams.keys()].some(key =>
+          !['sslmode', 'channel_binding', 'connect_timeout', 'application_name', 'sslrootcert'].includes(key))) {
+        fail('separate-role URL contains unsupported endpoint or session overrides.');
+      }
+    };
+    validateEndpoint(url);
+    const migrationUser = env.STAGING_TEST_MIGRATION_USER;
+    if (!/^[A-Za-z0-9_-]{1,63}$/.test(migrationUser || '') || migrationUser === databaseUser) {
+      fail('distinct approved application and migration role names are required.');
+    }
+    if (purpose === 'runtime' && env.STAGING_TEST_MIGRATION_URL) fail('migration credentials must be absent at runtime.');
+    if (purpose === 'migration') {
+      if (!env.STAGING_TEST_MIGRATION_URL) fail('migration credentials are required.');
+      const migration = parseDatabaseUrl(env.STAGING_TEST_MIGRATION_URL);
+      validateEndpoint(migration.url);
+      if (migration.databaseName !== databaseName || migration.databaseUser !== migrationUser ||
+          migration.url.hostname !== url.hostname || (migration.url.port || '5432') !== (url.port || '5432')) {
+        fail('migration and application credentials must target the same approved endpoint and database.');
+      }
+      return Object.freeze({ enabled: true, twoRole: true, purpose, databaseUrl: env.STAGING_TEST_MIGRATION_URL,
+        databaseName, databaseUser: migrationUser, applicationUser: databaseUser, migrationUser,
+        expectedHost, identity: env.STAGING_TEST_DATABASE_IDENTITY, databaseHost: url.hostname });
+    }
+  }
   return Object.freeze({
+    twoRole, purpose, migrationUser: env.STAGING_TEST_MIGRATION_USER,
+    applicationUser: databaseUser,
     enabled: true,
     databaseUrl: env.STAGING_TEST_DATABASE_URL,
     databaseName,
@@ -170,6 +203,7 @@ export async function verifyStagingTestDatabaseIdentity(query, fixtureConfig, { 
       fail('connected PostgreSQL database identity does not match the dedicated fixture database.');
     }
     await verifyStagingTestDatabaseRole(query, fixtureConfig.databaseUser);
+    if (fixtureConfig.twoRole) await verifySeparatedFixturePrivileges(query, fixtureConfig);
     const marker = await query(
       `SELECT identity_value FROM ${STAGING_TEST_DATABASE_IDENTITY_SCHEMA}.${STAGING_TEST_DATABASE_IDENTITY_TABLE}
        WHERE identity_key = $1`,
@@ -256,4 +290,26 @@ export async function assertStagingTestDatabaseIsEmpty(query, { allowEmptyMigrat
     fail('database contains an incomplete fixture identity schema.');
   }
   return Boolean(markerSchema.rows?.[0]?.marker_table);
+}
+
+/** Reject effective grants and ownership, including grants inherited from PUBLIC. */
+export async function verifySeparatedFixturePrivileges(query, config) {
+  const { rows: [state] } = await query(`SELECT
+    (SELECT pg_get_userbyid(datdba) = current_user FROM pg_database WHERE datname=current_database()) AS owns_database,
+    has_database_privilege(current_user, current_database(), 'CREATE') AS database_create,
+    has_database_privilege(current_user, current_database(), 'TEMP') AS database_temp,
+    (SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname='public') AS schema_owner,
+    current_schema() AS effective_schema,
+    EXISTS (SELECT 1 FROM pg_namespace WHERE nspname NOT LIKE 'pg_%' AND nspname NOT IN ('information_schema','public')
+      AND has_schema_privilege(current_user, oid, 'CREATE')) AS outside_schema_create,
+    EXISTS (SELECT 1 FROM pg_namespace WHERE nspname NOT LIKE 'pg_%' AND nspname <> 'information_schema'
+      AND has_schema_privilege(current_user, oid, 'CREATE')) AS schema_create,
+    EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+      WHERE n.nspname NOT LIKE 'pg_%' AND n.nspname <> 'information_schema' AND c.relowner=(SELECT oid FROM pg_roles WHERE rolname=current_user)) AS owns_objects,
+    has_table_privilege(current_user, 'shweta_fixture_meta.database_identity', 'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER,REFERENCES') AS marker_write`);
+  if (!state || state.owns_database || state.database_create || state.database_temp ||
+      state.outside_schema_create || state.schema_owner !== config.migrationUser || state.effective_schema !== 'public' || state.marker_write ||
+      (config.purpose !== 'migration' && (state.schema_create || state.owns_objects))) {
+    fail('separate-role ownership or privilege boundary is invalid.');
+  }
 }

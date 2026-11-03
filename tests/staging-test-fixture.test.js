@@ -265,3 +265,18 @@ try {
 } finally {
   await db.close();
 }
+
+const separatedEnv = fixtureEnv({ STAGING_TEST_ROLE_MODE: 'separate', STAGING_TEST_MIGRATION_USER: 'migrator' });
+assert.equal(resolveStagingTestFixtureConfig(separatedEnv).twoRole, true);
+assert.throws(() => resolveStagingTestFixtureConfig(separatedEnv, { purpose: 'migration' }), /migration credentials/);
+const migrationEnv = { ...separatedEnv, STAGING_TEST_MIGRATION_URL: separatedEnv.STAGING_TEST_DATABASE_URL.replace('fixture:fixture@','migrator:fixture@') };
+assert.equal(resolveStagingTestFixtureConfig(migrationEnv, { purpose: 'migration' }).databaseUser, 'migrator');
+assert.throws(() => resolveStagingTestFixtureConfig(migrationEnv), /absent at runtime/);
+for (const change of [
+  { STAGING_TEST_MIGRATION_USER: 'fixture' },
+  { STAGING_TEST_ROLE_MODE: '' },
+  { STAGING_TEST_MIGRATION_URL: migrationEnv.STAGING_TEST_MIGRATION_URL.replace('127.0.0.1','127.0.0.2') },
+  { STAGING_TEST_MIGRATION_URL: migrationEnv.STAGING_TEST_MIGRATION_URL + '?options=-csearch_path=other' }
+]) assert.throws(() => resolveStagingTestFixtureConfig({ ...migrationEnv, ...change }, { purpose: 'migration' }), /configuration rejected/);
+assert.throws(() => resolveStagingTestFixtureConfig(fixtureEnv({ DATABASE_PROVIDER: 'neon' })), /separate roles/);
+console.log('Separate-role configuration positive and negative checks passed.');

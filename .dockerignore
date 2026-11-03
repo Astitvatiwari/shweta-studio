@@ -8,3 +8,11 @@ coverage
 playwright-report
 test-results
 *.log
+
+*.pem
+*.key
+*.crt
+recovery
+upload
+*.tar.gz
+*.docx

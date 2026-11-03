@@ -6,6 +6,10 @@ on:
     branches:
       - fix/cart-inventory-verification
     paths:
+      - Dockerfile
+      - data/staging-test-fixture.js
+      - scripts/start-api.js
+      - tests/two-role-fixture.test.js
       - .dockerignore
       - .github/workflows/pg-native-docker-adapter.yml
       - data/postgres-pool.js
