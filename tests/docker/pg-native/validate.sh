@@ -102,9 +102,11 @@ RUN chown postgres:postgres /etc/ssl/certs/shweta-ci-postgres.crt /etc/ssl/priva
 CMD ["postgres", "-c", "listen_addresses=*", "-c", "ssl=on", "-c", "password_encryption=scram-sha-256", "-c", "ssl_cert_file=/etc/ssl/certs/shweta-ci-postgres.crt", "-c", "ssl_key_file=/etc/ssl/private/shweta-ci-postgres.key", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
 EOF
 
-docker build --build-arg "PG_IMAGE=$PG_IMAGE" --build-arg CERT_FILE=server-main.crt \
+docker build -f "$WORK_DIR/postgres.Dockerfile" \
+  --build-arg "PG_IMAGE=$PG_IMAGE" --build-arg CERT_FILE=server-main.crt \
   --build-arg KEY_FILE=server-main.key -t "$PG_MAIN_IMAGE" "$WORK_DIR"
-docker build --build-arg "PG_IMAGE=$PG_IMAGE" --build-arg CERT_FILE=server-wrong-ca.crt \
+docker build -f "$WORK_DIR/postgres.Dockerfile" \
+  --build-arg "PG_IMAGE=$PG_IMAGE" --build-arg CERT_FILE=server-wrong-ca.crt \
   --build-arg KEY_FILE=server-wrong-ca.key -t "$PG_WRONG_CA_IMAGE" "$WORK_DIR"
 docker run --detach --name "$MAIN_CONTAINER" \
   --publish 127.0.0.1:5433:5432 --publish 127.0.0.2:5433:5432 \

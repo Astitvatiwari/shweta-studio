@@ -92,7 +92,11 @@ export function createPostgresPool(connectionString, poolOptions = {}, {
   if (driver === 'node-postgres') {
     return new pgModule.Pool({
       ...poolOptions,
-      ...postgresConnectionOptions(connectionString)
+      ...postgresConnectionOptions(connectionString, {
+        sslMode: env.PGSSLMODE || 'require',
+        production: env.NODE_ENV === 'production' ||
+          (env.NODE_ENV === undefined && process.env.NODE_ENV === 'production')
+      })
     });
   }
 

@@ -7,7 +7,12 @@ const { parse: parsePgConnectionString } = require('pg-connection-string');
 
 const neonUrl =
   'postgresql://neon_app:synthetic@ep-phase6.us-east-2.aws.neon.tech/shweta?sslmode=require&channel_binding=require';
-const neonEnv = { DATABASE_PROVIDER: 'neon', DATABASE_DRIVER: 'pg-native' };
+const neonEnv = {
+  DATABASE_PROVIDER: 'neon',
+  DATABASE_DRIVER: 'pg-native',
+  NODE_ENV: 'test',
+  PGSSLMODE: 'disable'
+};
 let jsPoolCreations = 0;
 let nativePoolCreations = 0;
 let nativeLoads = 0;
@@ -38,13 +43,23 @@ const fakePg = {
 const renderInternal = createPostgresPool(
   'postgres://render_user:synthetic@dpg-test-a:5432/shweta_test',
   { max: 4 },
-  { env: {}, pgModule: fakePg }
+  { env: { NODE_ENV: 'production', PGSSLMODE: 'require' }, pgModule: fakePg }
 );
 assert.ok(renderInternal instanceof FakeJsPool);
 assert.equal(renderInternal.config.max, 4);
 assert.equal(renderInternal.config.ssl.rejectUnauthorized, false,
   'the existing Render private-host certificate exception remains scoped to Render URLs');
 assert.equal(nativeLoads, 0, 'default/Render pools must not load pg-native');
+
+const disposableCiPool = createPostgresPool(
+  'postgres://postgres:synthetic@localhost:5432/shweta_studio_test',
+  {},
+  { env: { NODE_ENV: 'test', PGSSLMODE: 'disable' }, pgModule: fakePg }
+);
+assert.ok(disposableCiPool instanceof FakeJsPool);
+assert.equal(disposableCiPool.config.ssl, false,
+  'the disposable CI configuration explicitly disables TLS only for its unencrypted test service');
+assert.equal(nativeLoads, 0, 'disposable CI configuration keeps the JavaScript driver');
 
 const renderExternal = createPostgresPool(
   'postgres://render_user:synthetic@dpg-test-a.singapore-postgres.render.com/shweta_test',
@@ -126,10 +141,12 @@ const neonPool = createPostgresPool(neonUrl, {
 assert.ok(neonPool instanceof FakeNativePool);
 assert.equal(nativeLoads, 1);
 assert.equal(nativePoolCreations, 1);
-assert.equal(jsPoolCreations, 2, 'the Neon connection must not fall back to node-postgres');
+assert.equal(jsPoolCreations, 3, 'the Neon connection must not fall back to node-postgres');
 assert.equal(lastNativeConfig.max, 3);
 assert.equal(lastNativeConfig.connectionTimeoutMillis, 8000);
 assert.equal(lastNativeConfig.idleTimeoutMillis, 25000);
+assert.equal(lastNativeConfig.nativeConnectionString.includes('sslmode=verify-full'), true,
+  'Neon native policy enforces verified TLS regardless of inherited PGSSLMODE');
 assert.notEqual(lastNativeConfig.connectionString, lastNativeConfig.nativeConnectionString,
   'the JS compatibility parser must not receive libpq-only sslrootcert=system');
 const adapterParsedUrl = parsePgConnectionString(lastNativeConfig.connectionString);

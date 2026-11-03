@@ -52,7 +52,7 @@ jobs:
           openssl req -newkey rsa:2048 -sha256 -nodes \
             -keyout "$tls_dir/server.key" -out "$tls_dir/server.csr" \
             -subj "/CN=localhost"
-          printf 'subjectAltName=DNS:localhost,IP:127.0.0.1\nextendedKeyUsage=serverAuth\nkeyUsage=digitalSignature,keyEncipherment\n' > "$tls_dir/server.ext"
+          printf 'subjectAltName=DNS:localhost\nextendedKeyUsage=serverAuth\nkeyUsage=digitalSignature,keyEncipherment\n' > "$tls_dir/server.ext"
           openssl x509 -req -sha256 -days 1 -in "$tls_dir/server.csr" \
             -CA "$tls_dir/ca.crt" -CAkey "$tls_dir/ca.key" -CAcreateserial \
             -extfile "$tls_dir/server.ext" -out "$tls_dir/server.crt"
