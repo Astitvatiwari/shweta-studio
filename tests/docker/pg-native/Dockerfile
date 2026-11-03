@@ -20,24 +20,46 @@ RUN set -eux; \
     apt-get update; \
     apt-get install --yes --no-install-recommends \
       "libpq-dev=${LIBPQ_PACKAGE_VERSION}" "libpq5=${LIBPQ_PACKAGE_VERSION}"; \
-    selected_pg_config="$(which pg_config)"; \
+    selected_pg_config="$(command -v pg_config)"; \
+    test -n "$selected_pg_config"; \
+    test -x "$selected_pg_config"; \
     test "$selected_pg_config" = "$PG_CONFIG"; \
     test -x "$PG_CONFIG"; \
     pg_config_real="$(readlink -f "$PG_CONFIG")"; \
     pg_config_bindir="$("$PG_CONFIG" --bindir)"; \
-    test "$pg_config_real" = "$(readlink -f "$pg_config_bindir/pg_config")"; \
+    test -n "$pg_config_bindir"; \
+    test "$pg_config_bindir" != "$(dirname "$pg_config_real")"; \
     version_output="$("$PG_CONFIG" --version)"; \
     printf '%s\n' "$version_output"; \
-    actual_version="$(printf '%s\n' "$version_output" | sed -nE 's/^PostgreSQL ([0-9]+\.[0-9]+)( \(Debian [^)]+\))?$/\1/p')"; \
-    test -n "$actual_version"; \
-    test "$actual_version" = "$LIBPQ_EXPECTED_VERSION"; \
+    parse_approved_version() { \
+      case "$1" in \
+        "PostgreSQL ${LIBPQ_EXPECTED_VERSION}"|"PostgreSQL ${LIBPQ_EXPECTED_VERSION} (Debian ${LIBPQ_PACKAGE_VERSION})") printf '%s\n' "$LIBPQ_EXPECTED_VERSION" ;; \
+        *) return 1 ;; \
+      esac; \
+    }; \
+    actual_version="$(parse_approved_version "$version_output")"; \
+    test "$(parse_approved_version "PostgreSQL ${LIBPQ_EXPECTED_VERSION}")" = "$LIBPQ_EXPECTED_VERSION"; \
+    test "$(parse_approved_version "PostgreSQL ${LIBPQ_EXPECTED_VERSION} (Debian ${LIBPQ_PACKAGE_VERSION})")" = "$LIBPQ_EXPECTED_VERSION"; \
+    if parse_approved_version 'PostgreSQL 99.99 (unapproved build)' >/dev/null 2>&1; then echo 'Rejected unapproved libpq version unexpectedly passed.' >&2; exit 1; fi; \
     actual_major="${actual_version%%.*}"; \
     test "$actual_major" -ge "$LIBPQ_MINIMUM_MAJOR"; \
+    test "$pg_config_bindir" = "/usr/lib/postgresql/${actual_major}/bin"; \
     test "$(pkg-config --modversion libpq)" = "$LIBPQ_EXPECTED_VERSION"; \
     test "$(dpkg-query -W -f='${Version}' libpq-dev)" = "$LIBPQ_PACKAGE_VERSION"; \
     test "$(dpkg-query -W -f='${Version}' libpq5)" = "$LIBPQ_PACKAGE_VERSION"; \
-    printf 'node-libpq build pg_config: %s -> %s; approved libpq: %s (minimum major %s)\n' \
-      "$selected_pg_config" "$pg_config_real" "$actual_version" "$LIBPQ_MINIMUM_MAJOR"; \
+    includedir="$("$PG_CONFIG" --includedir)"; \
+    libdir="$("$PG_CONFIG" --libdir)"; \
+    test -f "$includedir/libpq-fe.h"; \
+    test -d "$libdir"; \
+    expected_libpq="$(readlink -f "$libdir/libpq.so.5")"; \
+    test -f "$expected_libpq"; \
+    linker_libpq="$(ldconfig -p | awk '$1 == "libpq.so.5" { print $NF; exit }')"; \
+    test -n "$linker_libpq"; \
+    test "$(readlink -f "$linker_libpq")" = "$expected_libpq"; \
+    printf 'Debian 12 toolchain: pg_config=%s; server bindir=%s; include=%s; libdir=%s\n' \
+      "$selected_pg_config" "$pg_config_bindir" "$includedir" "$libdir"; \
+    printf 'Approved libpq: %s (minimum major %s), package %s, resolved library %s\n' \
+      "$actual_version" "$LIBPQ_MINIMUM_MAJOR" "$LIBPQ_PACKAGE_VERSION" "$expected_libpq"; \
     rm -f /tmp/pgdg.asc; \
     rm -rf /var/lib/apt/lists/*
 
@@ -48,7 +70,7 @@ COPY . .
 # Fail the image build if install scripts did not build the native addon or if
 # the resulting module has unresolved shared-library dependencies.
 RUN set -eux; \
-    test "$(which pg_config)" = "$PG_CONFIG"; \
+    test "$(command -v pg_config)" = "$PG_CONFIG"; \
     node --input-type=module -e "import pg from 'pg'; if (!pg.native?.Pool || !pg.native?.Client) process.exit(1); console.log('pg.native Pool and Client loaded');"; \
     addon="$(node -p "require.resolve('libpq')" | sed 's@/index.js$@/build/Release/addon.node@')"; \
     test -f "$addon"; \

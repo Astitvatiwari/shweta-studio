@@ -73,16 +73,50 @@ jobs:
             --env POSTGRES_USER=postgres \
             --env POSTGRES_PASSWORD=postgres \
             shweta-fixture-postgres-tls:ci
-          ready=false
-          for attempt in $(seq 1 30); do
-            if docker exec shweta-fixture-postgres-tls pg_isready -U postgres -d shweta_studio_test >/dev/null 2>&1; then
-              ready=true
-              break
-            fi
-            sleep 1
-          done
-          test "$ready" = true
           export NODE_ENV=production PGSSLMODE=require NODE_EXTRA_CA_CERTS="$tls_dir/ca.crt"
+          echo 'Waiting for authenticated TLS SQL over the published loopback TCP listener (bounded to 30 attempts).'
+          if ! node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import pg from 'pg';
+          import { postgresConnectionOptions } from './data/postgres-connection.js';
+          const url = process.env.FIXTURE_ADMIN_DATABASE_URL;
+          const options = postgresConnectionOptions(url, { sslMode: 'require', production: true });
+          assert.equal(options.ssl?.rejectUnauthorized, true, 'fixture readiness must verify TLS certificates');
+          let lastError;
+          let ready = false;
+          for (let attempt = 1; attempt <= 30; attempt += 1) {
+            const pool = new pg.Pool({ ...options, max: 1, connectionTimeoutMillis: 2000 });
+            try {
+              const result = await pool.query(`SELECT current_database() AS database_name,
+                current_user AS role_name, inet_server_addr() IS NOT NULL AS tcp,
+                (SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()) AS tls`);
+              assert.equal(result.rows[0].database_name, 'shweta_studio_test');
+              assert.equal(result.rows[0].role_name, 'postgres');
+              assert.equal(result.rows[0].tcp, true);
+              assert.equal(result.rows[0].tls, true);
+              console.log(`Authenticated TCP SQL readiness passed on attempt ${attempt}/30; expected database, role, TLS and verified localhost identity.`);
+              ready = true;
+              await pool.end();
+            } catch (error) {
+              lastError = error;
+              console.log(`Readiness attempt ${attempt}/30 did not complete authenticated TLS SQL: ${error.code ?? error.name}`);
+            } finally {
+              await pool.end().catch(() => {});
+            }
+            if (ready) break;
+            if (attempt < 30) await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+          if (!ready) {
+            console.error(`Authenticated TLS TCP SQL readiness exhausted 30 attempts: ${lastError?.code ?? lastError?.name ?? 'unknown error'}: ${lastError?.message ?? ''}`);
+            process.exitCode = 1;
+          }
+          NODE
+          then
+            echo 'PostgreSQL TLS TCP readiness diagnostics:'
+            docker inspect --format 'container={{.Name}} state={{.State.Status}} running={{.State.Running}} exit={{.State.ExitCode}}' shweta-fixture-postgres-tls || true
+            docker logs --tail 100 shweta-fixture-postgres-tls || true
+            exit 1
+          fi
           node --input-type=module <<'NODE'
           import pg from 'pg';
           import { postgresConnectionOptions } from './data/postgres-connection.js';
@@ -98,6 +132,8 @@ jobs:
             await pool.end();
           }
           NODE
+        env:
+          FIXTURE_ADMIN_DATABASE_URL: postgres://postgres:postgres@localhost:5433/shweta_studio_test
       - name: Run PostgreSQL fixture isolation tests
         run: npm run test:staging-fixture-postgres
         env:
@@ -112,10 +148,19 @@ jobs:
       - name: Stop disposable TLS PostgreSQL fixture
         if: always()
         run: |
+          if docker inspect shweta-fixture-postgres-tls >/dev/null 2>&1; then
+            docker inspect --format 'Pre-cleanup fixture state={{.State.Status}} running={{.State.Running}} exit={{.State.ExitCode}}' shweta-fixture-postgres-tls
+            docker logs --tail 30 shweta-fixture-postgres-tls || true
+          else
+            echo 'Pre-cleanup fixture container is already absent.'
+          fi
           docker rm -f shweta-fixture-postgres-tls >/dev/null 2>&1 || true
           docker image rm shweta-fixture-postgres-tls:ci >/dev/null 2>&1 || true
           rm -rf "$RUNNER_TEMP/shweta-fixture-postgres-tls"
           test ! -e "$RUNNER_TEMP/shweta-fixture-postgres-tls"
+          if docker inspect shweta-fixture-postgres-tls >/dev/null 2>&1; then echo 'Fixture container remains after cleanup.' >&2; exit 1; fi
+          if docker image inspect shweta-fixture-postgres-tls:ci >/dev/null 2>&1; then echo 'Fixture image remains after cleanup.' >&2; exit 1; fi
+          echo 'Cleanup verified: PostgreSQL fixture container, image and certificate directory are absent.'
 
   postgres18:
     runs-on: ubuntu-latest
@@ -178,17 +223,66 @@ jobs:
             --env POSTGRES_USER=postgres \
             --env POSTGRES_PASSWORD=postgres \
             shweta-fixture-postgres18-tls:ci
-          ready=false
-          for attempt in $(seq 1 30); do
-            if docker exec shweta-fixture-postgres18-tls pg_isready -U postgres -d shweta_studio_test >/dev/null 2>&1; then
-              ready=true
-              break
-            fi
-            sleep 1
-          done
-          test "$ready" = true
+          export NODE_ENV=production PGSSLMODE=require NODE_EXTRA_CA_CERTS="$tls_dir/ca.crt"
+          echo 'Waiting for authenticated TLS SQL over the published loopback TCP listener (bounded to 30 attempts).'
+          if ! node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import pg from 'pg';
+          import { postgresConnectionOptions } from './data/postgres-connection.js';
+          const url = process.env.FIXTURE_ADMIN_DATABASE_URL;
+          const options = postgresConnectionOptions(url, { sslMode: 'require', production: true });
+          assert.equal(options.ssl?.rejectUnauthorized, true, 'fixture readiness must verify TLS certificates');
+          let lastError;
+          let ready = false;
+          for (let attempt = 1; attempt <= 30; attempt += 1) {
+            const pool = new pg.Pool({ ...options, max: 1, connectionTimeoutMillis: 2000 });
+            try {
+              const result = await pool.query(`SELECT current_database() AS database_name,
+                current_user AS role_name, inet_server_addr() IS NOT NULL AS tcp,
+                (SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()) AS tls`);
+              assert.equal(result.rows[0].database_name, 'shweta_studio_test');
+              assert.equal(result.rows[0].role_name, 'postgres');
+              assert.equal(result.rows[0].tcp, true);
+              assert.equal(result.rows[0].tls, true);
+              console.log(`Authenticated TCP SQL readiness passed on attempt ${attempt}/30; expected database, role, TLS and verified localhost identity.`);
+              ready = true;
+              await pool.end();
+            } catch (error) {
+              lastError = error;
+              console.log(`Readiness attempt ${attempt}/30 did not complete authenticated TLS SQL: ${error.code ?? error.name}`);
+            } finally {
+              await pool.end().catch(() => {});
+            }
+            if (ready) break;
+            if (attempt < 30) await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+          if (!ready) {
+            console.error(`Authenticated TLS TCP SQL readiness exhausted 30 attempts: ${lastError?.code ?? lastError?.name ?? 'unknown error'}: ${lastError?.message ?? ''}`);
+            process.exitCode = 1;
+          }
+          NODE
+          then
+            echo 'PostgreSQL 18 TLS TCP readiness diagnostics:'
+            docker inspect --format 'container={{.Name}} state={{.State.Status}} running={{.State.Running}} exit={{.State.ExitCode}}' shweta-fixture-postgres18-tls || true
+            docker logs --tail 100 shweta-fixture-postgres18-tls || true
+            exit 1
+          fi
+        env:
+          FIXTURE_ADMIN_DATABASE_URL: postgres://postgres:postgres@localhost:5433/shweta_studio_test
       - name: Provision restricted PostgreSQL 18 integration role and database
         run: |
+          set -Eeuo pipefail
+          diagnose_provision_failure() {
+            local status=$?
+            trap - EXIT
+            if (( status != 0 )); then
+              echo 'PostgreSQL 18 provisioning failed; final fixture diagnostics follow (no connection URLs or passwords are printed).'
+              docker inspect --format 'container={{.Name}} state={{.State.Status}} running={{.State.Running}} exit={{.State.ExitCode}}' shweta-fixture-postgres18-tls || true
+              docker logs --tail 100 shweta-fixture-postgres18-tls || true
+            fi
+            exit "$status"
+          }
+          trap diagnose_provision_failure EXIT
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           import { randomBytes } from 'node:crypto';
@@ -285,7 +379,16 @@ jobs:
       - name: Stop disposable TLS PostgreSQL 18 fixture
         if: always()
         run: |
+          if docker inspect shweta-fixture-postgres18-tls >/dev/null 2>&1; then
+            docker inspect --format 'Pre-cleanup fixture state={{.State.Status}} running={{.State.Running}} exit={{.State.ExitCode}}' shweta-fixture-postgres18-tls
+            docker logs --tail 30 shweta-fixture-postgres18-tls || true
+          else
+            echo 'Pre-cleanup PostgreSQL 18 fixture container is already absent.'
+          fi
           docker rm -f shweta-fixture-postgres18-tls >/dev/null 2>&1 || true
           docker image rm shweta-fixture-postgres18-tls:ci >/dev/null 2>&1 || true
           rm -rf "$RUNNER_TEMP/shweta-fixture-postgres18-tls"
           test ! -e "$RUNNER_TEMP/shweta-fixture-postgres18-tls"
+          if docker inspect shweta-fixture-postgres18-tls >/dev/null 2>&1; then echo 'PostgreSQL 18 fixture container remains after cleanup.' >&2; exit 1; fi
+          if docker image inspect shweta-fixture-postgres18-tls:ci >/dev/null 2>&1; then echo 'PostgreSQL 18 fixture image remains after cleanup.' >&2; exit 1; fi
+          echo 'Cleanup verified: PostgreSQL 18 fixture container, image and certificate directory are absent.'
