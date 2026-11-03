@@ -45,6 +45,10 @@ function setEnv(name, value) {
   else process.env[name] = value;
 }
 
+function quoteIdentifier(identifier) {
+  return `"${identifier.replaceAll('"', '""')}"`;
+}
+
 function signedBody(payload) {
   const rawBody = JSON.stringify(payload);
   const signature = crypto.createHmac('sha256', testWebhookSecret).update(rawBody).digest('hex');
@@ -153,6 +157,62 @@ try {
   appPool = process.env.PG_NATIVE_ADAPTER_CI === 'true'
     ? (await import('../data/postgres-pool.js')).createPostgresPool(appConnectionUrl.toString(), { max: 4 })
     : new Pool({ ...postgresConnectionOptions(appConnectionUrl.toString()), max: 4 });
+
+  const adminIdentity = await adminPool.query(
+    'SELECT current_database() AS database_name, current_user AS role_name'
+  );
+  const appIdentity = await appPool.query(`
+    SELECT current_database() AS database_name,
+      current_user AS role_name,
+      current_setting('search_path') AS search_path
+  `);
+  assert.equal(appIdentity.rows[0].database_name, databaseName,
+    'application connection must use the loopback disposable test database');
+  assert.equal(adminIdentity.rows[0].database_name, appIdentity.rows[0].database_name,
+    'fixture administrator and migration role must use the same disposable database');
+  assert.equal(appIdentity.rows[0].search_path, schema,
+    'migration role must have the temporary fixture schema in its search_path');
+
+  const appRole = appIdentity.rows[0].role_name;
+  if (process.env.PG_NATIVE_ADAPTER_CI === 'true') {
+    assert.notEqual(appRole, adminIdentity.rows[0].role_name,
+      'native adapter migrations must run as the restricted application role');
+    const roleFlags = await adminPool.query(`
+      SELECT rolsuper, rolcreatedb, rolcreaterole, rolinherit, rolbypassrls
+      FROM pg_roles WHERE rolname = $1
+    `, [appRole]);
+    assert.equal(roleFlags.rowCount, 1, 'migration role must exist in the disposable database');
+    assert.equal(roleFlags.rows[0].rolsuper, false, 'migration role must not be a superuser');
+    assert.equal(roleFlags.rows[0].rolcreatedb, false, 'migration role must not create databases');
+    assert.equal(roleFlags.rows[0].rolcreaterole, false, 'migration role must not create roles');
+    assert.equal(roleFlags.rows[0].rolinherit, false, 'migration role must not inherit elevated roles');
+    assert.equal(roleFlags.rows[0].rolbypassrls, false, 'migration role must not bypass row security');
+  }
+
+  const initialSchemaPrivileges = await adminPool.query(`
+    SELECT has_schema_privilege($1, $2, 'USAGE') AS can_use,
+      has_schema_privilege($1, $2, 'CREATE') AS can_create
+  `, [appRole, schema]);
+  if (!initialSchemaPrivileges.rows[0].can_use || !initialSchemaPrivileges.rows[0].can_create) {
+    await adminPool.query(
+      `GRANT USAGE, CREATE ON SCHEMA ${quoteIdentifier(schema)} TO ${quoteIdentifier(appRole)}`
+    );
+  }
+  const grantedSchemaPrivileges = await adminPool.query(`
+    SELECT has_schema_privilege($1, $2, 'USAGE') AS can_use,
+      has_schema_privilege($1, $2, 'CREATE') AS can_create
+  `, [appRole, schema]);
+  assert.equal(grantedSchemaPrivileges.rows[0].can_use, true,
+    'migration role must have USAGE on its one temporary fixture schema');
+  assert.equal(grantedSchemaPrivileges.rows[0].can_create, true,
+    'migration role must have CREATE on its one temporary fixture schema');
+  const effectiveSearchPath = await appPool.query(`
+    SELECT current_schemas(false) AS schemas, current_setting('search_path') AS search_path
+  `);
+  assert.ok(effectiveSearchPath.rows[0].schemas.includes(schema),
+    'temporary fixture schema must be effective in the migration role search_path');
+  console.log(`Webhook fixture database=${databaseName}; migration_role=${appRole}; search_path=${schema}; schema grants=USAGE,CREATE on fixture schema only.`);
+
   const migration = await fs.readFile(new URL('../db/migrations/001_initial_schema.sql', import.meta.url), 'utf8');
   await appPool.query(migration);
 
