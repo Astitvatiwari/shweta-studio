@@ -172,7 +172,7 @@ try {
     /identity marker/i,
     'a missing or mismatched identity marker prevents runtime verification'
   );
-  console.log('PostgreSQL 16 staging fixture isolation integration tests passed.');
+  console.log('Staging fixture PostgreSQL isolation integration tests passed.');
 } finally {
   await fixturePool?.end();
   for (const databaseName of createdDatabases) {
