@@ -27,7 +27,7 @@ const tlsDisabledPool = new Pool({
   connectionTimeoutMillis: 5000
 });
 try {
-  await assert.rejects(tlsDisabledPool.query('SELECT 1'), /no pg_hba\.conf entry.*no encryption/i,
+  await assert.rejects(tlsDisabledPool.query('SELECT 1'), /(?:no pg_hba\.conf entry|pg_hba\.conf rejects connection).*no encryption/i,
     'the disposable PostgreSQL host rejects a TLS-disabled connection');
 } finally {
   await tlsDisabledPool.end();
