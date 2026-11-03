@@ -1,0 +1,128 @@
+name: Disposable PostgreSQL channel-binding driver proof of concept
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/cart-inventory-verification
+    paths:
+      - .github/workflows/pg-native-channel-binding-poc.yml
+      - tests/pg-native-channel-binding-poc.test.js
+
+jobs:
+  libpq-channel-binding:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ['16', '18']
+    env:
+      CI: 'true'
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install disposable native build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libpq-dev python3 make g++
+          pg_config --version
+          pkg-config --modversion libpq
+          postgres_password="$(openssl rand -hex 24)"
+          test_password="$(openssl rand -hex 24)"
+          echo "::add-mask::$postgres_password"
+          echo "::add-mask::$test_password"
+          printf 'PG_NATIVE_POC_ADMIN_PASSWORD=%s\n' "$postgres_password" >> "$GITHUB_ENV"
+          printf 'PG_NATIVE_POC_PASSWORD=%s\n' "$test_password" >> "$GITHUB_ENV"
+      - run: npm ci
+      - name: Install disposable driver candidates for this job only
+        run: npm install --no-save --package-lock=false pg-native@3.9.1 postgres@4.0.0
+      - name: Create ephemeral TLS test certificates
+        run: |
+          set -euo pipefail
+          tls_dir="$RUNNER_TEMP/pg-native-channel-binding"
+          mkdir -p "$tls_dir"
+          openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 1 \
+            -keyout "$tls_dir/ca.key" -out "$tls_dir/ca.crt" \
+            -subj "/CN=Shweta Studio Disposable CI CA" \
+            -addext "basicConstraints=critical,CA:TRUE" \
+            -addext "keyUsage=critical,keyCertSign,cRLSign"
+          openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 1 \
+            -keyout "$tls_dir/wrong-ca.key" -out "$tls_dir/wrong-ca.crt" \
+            -subj "/CN=Untrusted Disposable CI CA" \
+            -addext "basicConstraints=critical,CA:TRUE" \
+            -addext "keyUsage=critical,keyCertSign,cRLSign"
+          openssl req -newkey rsa:2048 -sha256 -nodes \
+            -keyout "$tls_dir/server.key" -out "$tls_dir/server.csr" \
+            -subj "/CN=localhost"
+          printf 'subjectAltName=DNS:localhost\nextendedKeyUsage=serverAuth\nkeyUsage=digitalSignature,keyEncipherment\n' > "$tls_dir/server.ext"
+          openssl x509 -req -sha256 -days 1 -in "$tls_dir/server.csr" \
+            -CA "$tls_dir/ca.crt" -CAkey "$tls_dir/ca.key" -CAcreateserial \
+            -extfile "$tls_dir/server.ext" -out "$tls_dir/server.crt"
+          rm -f "$tls_dir/ca.key" "$tls_dir/wrong-ca.key" "$tls_dir/server.csr" "$tls_dir/server.ext" "$tls_dir/ca.srl"
+          printf 'tls_dir=%s\n' "$tls_dir" >> "$GITHUB_ENV"
+          printf 'PG_NATIVE_POC_CA_FILE=%s/ca.crt\n' "$tls_dir" >> "$GITHUB_ENV"
+          printf 'PG_NATIVE_POC_WRONG_CA_FILE=%s/wrong-ca.crt\n' "$tls_dir" >> "$GITHUB_ENV"
+          printf 'PG_NATIVE_POC_SERVER_KEY=%s/server.key\n' "$tls_dir" >> "$GITHUB_ENV"
+          printf 'PG_NATIVE_POC_SERVER_CERT=%s/server.crt\n' "$tls_dir" >> "$GITHUB_ENV"
+      - name: Build disposable TLS PostgreSQL ${{ matrix.postgres }} image
+        run: |
+          set -euo pipefail
+          cat > "$tls_dir/pg_hba.conf" <<'EOF'
+          local all all trust
+          hostnossl all all 0.0.0.0/0 reject
+          hostssl all all 0.0.0.0/0 scram-sha-256
+          EOF
+          cat > "$tls_dir/Dockerfile" <<'EOF'
+          ARG PG_VERSION
+          FROM postgres:${PG_VERSION}
+          COPY server.crt /etc/ssl/certs/shweta-ci-postgres.crt
+          COPY server.key /etc/ssl/private/shweta-ci-postgres.key
+          COPY pg_hba.conf /etc/postgresql/pg_hba.conf
+          RUN chown postgres:postgres /etc/ssl/certs/shweta-ci-postgres.crt /etc/ssl/private/shweta-ci-postgres.key /etc/postgresql/pg_hba.conf \
+              && chmod 0644 /etc/ssl/certs/shweta-ci-postgres.crt /etc/postgresql/pg_hba.conf \
+              && chmod 0600 /etc/ssl/private/shweta-ci-postgres.key
+          CMD ["postgres", "-c", "ssl=on", "-c", "password_encryption=scram-sha-256", "-c", "ssl_cert_file=/etc/ssl/certs/shweta-ci-postgres.crt", "-c", "ssl_key_file=/etc/ssl/private/shweta-ci-postgres.key", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
+          EOF
+          docker build --quiet --build-arg PG_VERSION=${{ matrix.postgres }} \
+            -t shweta-pg-native-channel-binding:${{ matrix.postgres }} "$tls_dir"
+          docker run --detach --name shweta-pg-native-channel-binding \
+            --publish 127.0.0.1:5433:5432 \
+            --env POSTGRES_DB=postgres \
+            --env POSTGRES_USER=postgres \
+            --env POSTGRES_PASSWORD="$PG_NATIVE_POC_ADMIN_PASSWORD" \
+            shweta-pg-native-channel-binding:${{ matrix.postgres }}
+          ready=false
+          for attempt in $(seq 1 30); do
+            if docker exec shweta-pg-native-channel-binding pg_isready -U postgres -d postgres >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          test "$ready" = true
+      - name: Provision isolated synthetic SCRAM role and database
+        run: |
+          set -euo pipefail
+          docker exec shweta-pg-native-channel-binding psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
+            -c "CREATE ROLE poc_scram_user LOGIN PASSWORD '$PG_NATIVE_POC_PASSWORD' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;"
+          docker exec shweta-pg-native-channel-binding psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
+            -c "CREATE DATABASE shweta_native_poc_test OWNER poc_scram_user;"
+          docker exec shweta-pg-native-channel-binding psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
+            -c "REVOKE CONNECT ON DATABASE postgres FROM PUBLIC;"
+          printf 'PG_NATIVE_POC_DATABASE_URL=postgres://poc_scram_user:%s@localhost:5433/shweta_native_poc_test?sslmode=verify-full&sslrootcert=%s/ca.crt&channel_binding=require\n' "$PG_NATIVE_POC_PASSWORD" "$tls_dir" >> "$GITHUB_ENV"
+      - name: Test strict PLUS, downgrade rejection, TLS and driver compatibility
+        run: node tests/pg-native-channel-binding-poc.test.js
+      - name: Remove disposable database container, image and TLS material
+        if: always()
+        run: |
+          docker rm -f shweta-pg-native-channel-binding >/dev/null 2>&1 || true
+          docker image rm "shweta-pg-native-channel-binding:${{ matrix.postgres }}" >/dev/null 2>&1 || true
+          rm -rf "$RUNNER_TEMP/pg-native-channel-binding"
+          test ! -e "$RUNNER_TEMP/pg-native-channel-binding"
