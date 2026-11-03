@@ -31,7 +31,7 @@ jobs:
       - name: Install disposable native build prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install --yes libpq-dev python3 make g++
+          sudo apt-get install --yes libpq-dev postgresql-client python3 make g++
           pg_config --version
           pkg-config --modversion libpq
           postgres_password="$(openssl rand -hex 24)"
@@ -60,8 +60,8 @@ jobs:
             -addext "keyUsage=critical,keyCertSign,cRLSign"
           openssl req -newkey rsa:2048 -sha256 -nodes \
             -keyout "$tls_dir/server.key" -out "$tls_dir/server.csr" \
-            -subj "/CN=localhost"
-          printf 'subjectAltName=DNS:localhost\nextendedKeyUsage=serverAuth\nkeyUsage=digitalSignature,keyEncipherment\n' > "$tls_dir/server.ext"
+            -subj "/CN=127.0.0.1"
+          printf 'subjectAltName=IP:127.0.0.1\nextendedKeyUsage=serverAuth\nkeyUsage=digitalSignature,keyEncipherment\n' > "$tls_dir/server.ext"
           openssl x509 -req -sha256 -days 1 -in "$tls_dir/server.csr" \
             -CA "$tls_dir/ca.crt" -CAkey "$tls_dir/ca.key" -CAcreateserial \
             -extfile "$tls_dir/server.ext" -out "$tls_dir/server.crt"
@@ -94,29 +94,40 @@ jobs:
             -t shweta-pg-native-channel-binding:${{ matrix.postgres }} "$tls_dir"
           docker run --detach --name shweta-pg-native-channel-binding \
             --publish 127.0.0.1:5433:5432 \
+            --publish 127.0.0.2:5433:5432 \
             --env POSTGRES_DB=postgres \
             --env POSTGRES_USER=postgres \
             --env POSTGRES_PASSWORD="$PG_NATIVE_POC_ADMIN_PASSWORD" \
             shweta-pg-native-channel-binding:${{ matrix.postgres }}
+          admin_conn="host=127.0.0.1 port=5433 dbname=postgres user=postgres sslmode=verify-full sslrootcert=$tls_dir/ca.crt connect_timeout=3"
           ready=false
           for attempt in $(seq 1 30); do
-            if docker exec shweta-pg-native-channel-binding pg_isready -U postgres -d postgres >/dev/null 2>&1; then
+            if PGPASSWORD="$PG_NATIVE_POC_ADMIN_PASSWORD" psql "$admin_conn" \
+              -X -v ON_ERROR_STOP=1 -Atqc 'SELECT 1' \
+              > "$tls_dir/readiness.out" 2> "$tls_dir/readiness.err" \
+              && grep -qx '1' "$tls_dir/readiness.out"; then
               ready=true
               break
             fi
-            sleep 1
+            sleep 2
           done
-          test "$ready" = true
+          if [ "$ready" != true ]; then
+            echo 'PostgreSQL did not become ready through authenticated, verified-TLS TCP on the published loopback port.'
+            cat "$tls_dir/readiness.err"
+            docker logs --tail 100 shweta-pg-native-channel-binding
+            exit 1
+          fi
       - name: Provision isolated synthetic SCRAM role and database
         run: |
           set -euo pipefail
-          docker exec shweta-pg-native-channel-binding psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
-            -c "CREATE ROLE poc_scram_user LOGIN PASSWORD '$PG_NATIVE_POC_PASSWORD' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;"
-          docker exec shweta-pg-native-channel-binding psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
-            -c "CREATE DATABASE shweta_native_poc_test OWNER poc_scram_user;"
-          docker exec shweta-pg-native-channel-binding psql -v ON_ERROR_STOP=1 -U postgres -d postgres \
-            -c "REVOKE CONNECT ON DATABASE postgres FROM PUBLIC;"
-          printf 'PG_NATIVE_POC_DATABASE_URL=postgres://poc_scram_user:%s@localhost:5433/shweta_native_poc_test?sslmode=verify-full&sslrootcert=%s/ca.crt&channel_binding=require\n' "$PG_NATIVE_POC_PASSWORD" "$tls_dir" >> "$GITHUB_ENV"
+          admin_conn="host=127.0.0.1 port=5433 dbname=postgres user=postgres sslmode=verify-full sslrootcert=$tls_dir/ca.crt connect_timeout=3"
+          admin_psql() {
+            PGPASSWORD="$PG_NATIVE_POC_ADMIN_PASSWORD" psql "$admin_conn" -X -v ON_ERROR_STOP=1 "$@"
+          }
+          admin_psql -c "CREATE ROLE poc_scram_user LOGIN PASSWORD '$PG_NATIVE_POC_PASSWORD' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;"
+          admin_psql -c "CREATE DATABASE shweta_native_poc_test OWNER poc_scram_user;"
+          admin_psql -c "REVOKE CONNECT ON DATABASE postgres FROM PUBLIC;"
+          printf 'PG_NATIVE_POC_DATABASE_URL=postgres://poc_scram_user:%s@127.0.0.1:5433/shweta_native_poc_test?sslmode=verify-full&sslrootcert=%s/ca.crt&channel_binding=require\n' "$PG_NATIVE_POC_PASSWORD" "$tls_dir" >> "$GITHUB_ENV"
       - name: Test strict PLUS, downgrade rejection, TLS and driver compatibility
         run: node tests/pg-native-channel-binding-poc.test.js
       - name: Remove disposable database container, image and TLS material

@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import dns from 'node:dns';
 import { readFile } from 'node:fs/promises';
 import net from 'node:net';
 import tls from 'node:tls';
@@ -16,8 +15,8 @@ if (process.env.CI !== 'true' || !databaseUrl || !caFile || !wrongCaFile || !tes
 
 function assertDisposableUrl(value) {
   const url = new URL(value);
-  if (!['localhost', '127.0.0.1', '::1'].includes(url.hostname) ||
-      (url.searchParams.has('hostaddr') && url.searchParams.get('hostaddr') !== '127.0.0.1') ||
+  const loopbackIpv4 = net.isIPv4(url.hostname) && url.hostname.split('.')[0] === '127';
+  if (!['postgres:', 'postgresql:'].includes(url.protocol) || !loopbackIpv4 || url.searchParams.has('hostaddr') ||
       !url.pathname.slice(1).endsWith('_test')) {
     throw new Error('Refusing to connect outside a loopback _test database.');
   }
@@ -25,22 +24,29 @@ function assertDisposableUrl(value) {
 }
 const baseUrl = assertDisposableUrl(databaseUrl);
 assert.throws(
-  () => assertDisposableUrl('postgres://user:password@db.example.com/staging'),
+  () => assertDisposableUrl('postgres://user:password@db.example.com/shweta_test'),
   /loopback _test database/,
-  'non-loopback non-test database URLs must be rejected before connecting'
+  'non-loopback database URLs must be rejected before connecting'
 );
 assert.throws(
-  () => assertDisposableUrl('postgres://user:password@localhost/staging'),
+  () => assertDisposableUrl('postgres://user:password@127.0.0.1/staging'),
   /loopback _test database/,
   'loopback URLs to non-test databases must be rejected before connecting'
 );
 assert.throws(
-  () => assertDisposableUrl('postgres://user:password@localhost/shweta_test?hostaddr=192.0.2.10'),
+  () => assertDisposableUrl('postgres://user:password@127.0.0.1/shweta_test?hostaddr=192.0.2.10'),
   /loopback _test database/,
-  'hostaddr must not redirect a test connection away from loopback'
+  'hostaddr overrides are forbidden in this test harness'
 );
-assert.equal(baseUrl.hostname, 'localhost', 'TLS identity must remain the DNS hostname');
-baseUrl.searchParams.set('hostaddr', '127.0.0.1');
+assert.equal(baseUrl.hostname, '127.0.0.1', 'test connections must use the published IPv4 loopback address');
+assert.equal(baseUrl.port, '5433', 'test connections must use the disposable published port');
+assert.equal(baseUrl.searchParams.get('sslmode'), 'verify-full', 'test connections must verify TLS identity');
+assert.equal(baseUrl.searchParams.get('channel_binding'), 'require',
+  'test connections must require SCRAM channel binding');
+assert.equal(baseUrl.searchParams.has('hostaddr'), false,
+  'the adapter must not override the explicit IPv4 loopback host');
+assert.equal(assertDisposableUrl('postgres://user:password@127.0.0.2/shweta_test').hostname, '127.0.0.2',
+  'the alternate wrong-identity test endpoint must also be loopback-only');
 
 // Never silently fall back to the pure-JS pg driver in this proof of concept.
 const Native = pg.native;
@@ -55,25 +61,44 @@ function connectionUrl({ host, password, sslmode = 'verify-full', rootCert = caF
   if (password) url.password = password;
   url.searchParams.set('sslmode', sslmode);
   url.searchParams.set('channel_binding', 'require');
+  url.searchParams.set('connect_timeout', '5');
   if (rootCert) url.searchParams.set('sslrootcert', rootCert);
   else url.searchParams.delete('sslrootcert');
-  return url.toString();
+  return assertDisposableUrl(url.toString()).toString();
 }
 
 function postgresJsConnectionUrl({ host, password, sslmode = 'verify-full', rootCert = caFile } = {}) {
   const url = new URL(baseUrl);
-  url.searchParams.delete('hostaddr');
   if (host) url.hostname = host;
   if (password) url.password = password;
   url.searchParams.set('sslmode', sslmode);
   url.searchParams.set('channel_binding', 'require');
   if (rootCert) url.searchParams.set('sslrootcert', rootCert);
   else url.searchParams.delete('sslrootcert');
-  return url.toString();
+  return assertDisposableUrl(url.toString()).toString();
+}
+
+function nativeClientConfig(url, overrides = {}) {
+  // pg's native adapter reconstructs a libpq connection string from selected
+  // fields; nativeConnectionString preserves channel_binding=require verbatim.
+  return { connectionString: url, nativeConnectionString: url, ...overrides };
+}
+
+async function assertTcpLoopbackReachable(host, port, label) {
+  const socket = net.createConnection({ host, port });
+  try {
+    await new Promise((resolve, reject) => {
+      socket.setTimeout(3000, () => reject(new Error(`${label}: TCP probe timed out`)));
+      socket.once('connect', resolve);
+      socket.once('error', reject);
+    });
+  } finally {
+    socket.destroy();
+  }
 }
 
 async function expectConnectionFailure(url, pattern, label) {
-  const client = new Client({ connectionString: url, connectionTimeoutMillis: 5000 });
+  const client = new Client(nativeClientConfig(url, { connectionTimeoutMillis: 5000 }));
   try {
     await assert.rejects(client.connect(), pattern, label);
   } finally {
@@ -169,7 +194,7 @@ async function startPlainScramOnlyServer({ key, cert }) {
   return {
     url: port => {
       const url = new URL(baseUrl);
-      url.hostname = 'localhost';
+      url.hostname = '127.0.0.1';
       url.port = String(port ?? server.address().port);
       url.pathname = '/shweta_native_poc_test';
       url.username = 'poc_scram_user';
@@ -178,7 +203,8 @@ async function startPlainScramOnlyServer({ key, cert }) {
       url.searchParams.set('sslmode', 'verify-full');
       url.searchParams.set('sslrootcert', caFile);
       url.searchParams.set('channel_binding', 'require');
-      return url.toString();
+      url.searchParams.set('connect_timeout', '5');
+      return assertDisposableUrl(url.toString()).toString();
     },
     port,
     async close() {
@@ -192,7 +218,7 @@ async function startPlainScramOnlyServer({ key, cert }) {
 
 // Strict success against disposable PostgreSQL: a TLS+SCRAM connection can
 // succeed under channel_binding=require only if libpq completed PLUS.
-const pool = new Pool({ connectionString: connectionUrl(), max: 2, connectionTimeoutMillis: 5000 });
+const pool = new Pool(nativeClientConfig(connectionUrl(), { max: 2, connectionTimeoutMillis: 5000 }));
 try {
   const checked = await pool.query(`SELECT current_database() AS database_name,
     (SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()) AS tls_enabled`);
@@ -238,10 +264,12 @@ await expectConnectionFailure(
   /certificate verify failed|self-signed certificate/i,
   'untrusted certificate authority must fail'
 );
+await assertTcpLoopbackReachable('127.0.0.2', Number(baseUrl.port),
+  'native wrong-identity endpoint must be listening before TLS verification');
 await expectConnectionFailure(
-  connectionUrl({ host: '127.0.0.1' }),
+  connectionUrl({ host: '127.0.0.2' }),
   /certificate verify failed|does not match host name|hostname mismatch/i,
-  'hostname mismatch must fail'
+  'incorrect IP identity must fail certificate verification'
 );
 await expectConnectionFailure(
   connectionUrl({ sslmode: 'disable', rootCert: null }),
@@ -253,12 +281,9 @@ console.log('pg-native wrong-credential, invalid-CA, hostname-mismatch and TLS-d
 // Compare the newly released pure-JavaScript Postgres.js v4 driver. It has a
 // different API from pg, but its documented channel_binding=require policy
 // avoids native libpq dependencies.
-// Unlike libpq, this driver uses Node's resolver. Keep the DNS hostname for TLS,
-// but resolve localhost to the runner's IPv4-only loopback publication.
-dns.setDefaultResultOrder('ipv4first');
-const localhostAddresses = await dns.promises.lookup('localhost', { all: true });
-assert.equal(localhostAddresses[0].address, '127.0.0.1',
-  'Postgres.js localhost must resolve to the disposable IPv4 loopback listener');
+// Postgres.js is tested independently with its own URL and TLS/IP identity.
+assert.equal(new URL(postgresJsConnectionUrl()).hostname, '127.0.0.1',
+  'Postgres.js must connect directly to the disposable IPv4 loopback listener');
 const jsDriver = postgres(postgresJsConnectionUrl(), { max: 2, connect_timeout: 5 });
 try {
   const [checked] = await jsDriver`SELECT current_database() AS database_name,
@@ -286,10 +311,12 @@ await expectPostgresJsFailure(
   /SELF_SIGNED_CERT_IN_CHAIN|CERT_UNTRUSTED|certificate verify failed/i,
   'Postgres.js untrusted certificate authority must fail'
 );
+await assertTcpLoopbackReachable('127.0.0.2', Number(baseUrl.port),
+  'Postgres.js wrong-identity endpoint must be listening before TLS verification');
 await expectPostgresJsFailure(
-  postgresJsConnectionUrl({ host: '127.0.0.1' }),
+  postgresJsConnectionUrl({ host: '127.0.0.2' }),
   /ERR_TLS_CERT_ALTNAME_INVALID|does not match certificate|hostname mismatch/i,
-  'Postgres.js hostname mismatch must fail'
+  'Postgres.js incorrect IP identity must fail certificate verification'
 );
 await expectPostgresJsFailure(
   postgresJsConnectionUrl({ sslmode: 'disable', rootCert: null }),
