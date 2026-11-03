@@ -1,15 +1,13 @@
 import crypto from 'node:crypto';
-import pg from 'pg';
 import { runtimeCatalog, stagingTestFixtureConfig } from './runtime-catalog.js';
 import { verifyStagingTestDatabaseIdentity } from './staging-test-fixture.js';
-import { postgresConnectionOptions } from './postgres-connection.js';
+import { createPostgresPool } from './postgres-pool.js';
 import {
   calculatePreparationTime,
   getAuthoritativePrice,
   sanitizeStorefrontItem
 } from './inventory-file-store.js';
 
-const { Pool } = pg;
 const connectionUrl = stagingTestFixtureConfig.enabled
   ? stagingTestFixtureConfig.databaseUrl
   : process.env.DATABASE_URL;
@@ -17,8 +15,7 @@ if (!connectionUrl) {
   throw new Error('DATABASE_URL is required when STORAGE_BACKEND=postgres.');
 }
 export const CHECKOUT_RESERVATION_TTL_MS = parseInt(process.env.CHECKOUT_RESERVATION_TTL_MS || '900000', 10);
-const pool = new Pool({
-  ...postgresConnectionOptions(connectionUrl),
+const pool = createPostgresPool(connectionUrl, {
   max: Number.parseInt(process.env.PGPOOL_MAX || '10', 10),
   connectionTimeoutMillis: 10000,
   idleTimeoutMillis: 30000

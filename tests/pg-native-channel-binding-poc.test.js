@@ -4,12 +4,14 @@ import { readFile } from 'node:fs/promises';
 import net from 'node:net';
 import tls from 'node:tls';
 import pg from 'pg';
-import postgres from 'postgres';
 
 const suite = process.env.PG_NATIVE_POC_SUITE || 'all';
 if (!['all', 'pg-native', 'postgres-js'].includes(suite)) {
   throw new Error(`Unsupported PG_NATIVE_POC_SUITE: ${suite}`);
 }
+const postgres = suite !== 'pg-native'
+  ? (await import('postgres')).default
+  : null;
 const databaseUrl = process.env.PG_NATIVE_POC_DATABASE_URL;
 const caFile = process.env.PG_NATIVE_POC_CA_FILE;
 const wrongCaFile = process.env.PG_NATIVE_POC_WRONG_CA_FILE;

@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { createPostgresPool } from '../data/postgres-pool.js';
 import { postgresConnectionOptions } from '../data/postgres-connection.js';
 import {
   resolveStagingTestFixtureConfig,
@@ -23,6 +24,7 @@ if (!adminUrl) {
 }
 
 const adminConnection = new URL(adminUrl);
+const nativeAdapterCi = process.env.PG_NATIVE_ADAPTER_CI === 'true';
 if (!['localhost', '127.0.0.1', '::1'].includes(adminConnection.hostname) ||
     !adminConnection.pathname.slice(1).endsWith('_test') || process.env.CI !== 'true') {
   throw new Error('Refusing fixture integration: TEST_DATABASE_URL must be loopback-only, end in _test, and run in CI.');
@@ -37,6 +39,14 @@ const identity = randomBytes(24).toString('hex');
 const quoteIdentifier = value => `"${value.replaceAll('"', '""')}"`;
 const quoteLiteral = value => `'${value.replaceAll("'", "''")}'`;
 const fixtureUrl = new URL(adminUrl);
+if (nativeAdapterCi) {
+  const nativeHost = String(process.env.PG_NATIVE_ADAPTER_HOST || '').toLowerCase();
+  if (!nativeHost.endsWith('.neon.tech')) {
+    throw new Error('Refusing native fixture integration without the fixed disposable Neon-shaped Docker alias.');
+  }
+  fixtureUrl.hostname = nativeHost;
+  fixtureUrl.searchParams.set('channel_binding', 'require');
+}
 fixtureUrl.username = roleName;
 fixtureUrl.password = rolePassword;
 fixtureUrl.pathname = `/${STAGING_TEST_DATABASE_NAME}`;
@@ -52,7 +62,7 @@ const fixtureEnv = {
   STAGING_TEST_NETLIFY_PROXY_SIGNING_SECRET: `ci-only-${randomBytes(24).toString('hex')}`,
   STAGING_TEST_NETLIFY_SITE_URL: 'https://shweta-studio-fixture-ci.netlify.app',
   STAGING_TEST_DATABASE_URL: fixtureUrl.toString(),
-  STAGING_TEST_DATABASE_HOST: adminConnection.hostname,
+  STAGING_TEST_DATABASE_HOST: fixtureUrl.hostname,
   STAGING_TEST_DATABASE_NAME: STAGING_TEST_DATABASE_NAME,
   STAGING_TEST_DATABASE_USER: roleName,
   STAGING_TEST_DATABASE_IDENTITY: identity,
@@ -110,7 +120,9 @@ try {
     );
   }
 
-  fixturePool = new Pool({ ...testTlsOptions(config.databaseUrl), max: 1 });
+  fixturePool = nativeAdapterCi
+    ? createPostgresPool(config.databaseUrl, { max: 1 })
+    : new Pool({ ...testTlsOptions(config.databaseUrl), max: 1 });
   await assert.rejects(
     verifyStagingTestDatabaseIdentity(fixturePool.query.bind(fixturePool), config),
     /identity could not be independently verified/i,
@@ -153,7 +165,9 @@ try {
 
   const otherUrl = new URL(fixtureUrl);
   otherUrl.pathname = `/${otherDatabaseName}`;
-  const otherPool = new Pool({ ...testTlsOptions(otherUrl.toString()), max: 1, connectionTimeoutMillis: 3000 });
+  const otherPool = nativeAdapterCi
+    ? createPostgresPool(otherUrl.toString(), { max: 1, connectionTimeoutMillis: 3000 })
+    : new Pool({ ...testTlsOptions(otherUrl.toString()), max: 1, connectionTimeoutMillis: 3000 });
   try {
     await assert.rejects(otherPool.query('SELECT current_database()'),
       /permission denied for database/i,

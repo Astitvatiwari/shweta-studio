@@ -1,15 +1,13 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import pg from 'pg';
-import { postgresConnectionOptions } from '../data/postgres-connection.js';
+import { createPostgresPool } from '../data/postgres-pool.js';
 import {
   assertStagingTestDatabaseIsEmpty,
   resolveStagingTestFixtureConfig,
   verifyStagingTestDatabaseIdentity
 } from '../data/staging-test-fixture.js';
 
-const { Pool } = pg;
 const here = path.dirname(fileURLToPath(import.meta.url));
 const migrationsDir = path.resolve(here, '../db/migrations');
 
@@ -22,8 +20,7 @@ if (!migrationUrl) {
   process.exit(1);
 }
 
-const pool = new Pool({
-  ...postgresConnectionOptions(migrationUrl),
+const pool = createPostgresPool(migrationUrl, {
   max: 2,
   connectionTimeoutMillis: 10000
 });

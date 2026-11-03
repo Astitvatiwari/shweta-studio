@@ -134,7 +134,9 @@ async function assertUnconfirmed(pool, store, order) {
 
 try {
   await adminPool.query(`CREATE SCHEMA "${schema}"`);
-  const scopedUrl = new URL(testUrl);
+  const scopedUrl = new URL(process.env.PG_NATIVE_ADAPTER_CI === 'true'
+    ? process.env.PG_NATIVE_ADAPTER_DATABASE_URL
+    : testUrl);
   scopedUrl.searchParams.set('options', `-c search_path=${schema}`);
   process.env.DATABASE_URL = scopedUrl.toString();
   process.env.NODE_ENV = 'test';
@@ -144,7 +146,13 @@ try {
   process.env.RAZORPAY_KEY_SECRET = testKeySecret;
   process.env.API_RATE_LIMIT_PER_PROXY = '300';
 
-  appPool = new Pool({ ...postgresConnectionOptions(testUrl), options: `-c search_path=${schema}` });
+  const appConnectionUrl = new URL(process.env.PG_NATIVE_ADAPTER_CI === 'true'
+    ? process.env.PG_NATIVE_ADAPTER_DATABASE_URL
+    : testUrl);
+  appConnectionUrl.searchParams.set('options', `-c search_path=${schema}`);
+  appPool = process.env.PG_NATIVE_ADAPTER_CI === 'true'
+    ? (await import('../data/postgres-pool.js')).createPostgresPool(appConnectionUrl.toString(), { max: 4 })
+    : new Pool({ ...postgresConnectionOptions(appConnectionUrl.toString()), max: 4 });
   const migration = await fs.readFile(new URL('../db/migrations/001_initial_schema.sql', import.meta.url), 'utf8');
   await appPool.query(migration);
 

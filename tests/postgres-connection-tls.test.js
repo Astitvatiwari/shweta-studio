@@ -49,21 +49,20 @@ const invalidCertificatePool = new Pool({
   connectionTimeoutMillis: 5000
 });
 try {
-  await assert.rejects(invalidCertificatePool.query('SELECT 1'), undefined,
+  await assert.rejects(invalidCertificatePool.query('SELECT 1'), /certificate|issuer|self.signed|unable to verify/i,
     'a certificate signed by an untrusted CA must be rejected');
 } finally {
   await invalidCertificatePool.end();
 }
 
-const wrongHostUrl = new URL(databaseUrl);
-wrongHostUrl.hostname = parsed.hostname === 'localhost' ? '127.0.0.1' : 'localhost';
 const wrongHostPool = new Pool({
-  ...postgresConnectionOptions(wrongHostUrl.toString(), { sslMode: 'require', production: true }),
+  ...baseOptions,
+  ssl: { ...baseOptions.ssl, servername: 'phase6-certificate-mismatch.invalid' },
   max: 1,
   connectionTimeoutMillis: 5000
 });
 try {
-  await assert.rejects(wrongHostPool.query('SELECT 1'), undefined,
+  await assert.rejects(wrongHostPool.query('SELECT 1'), /certificate|altname|hostname|does not match/i,
     'a valid chain with a hostname mismatch must be rejected');
 } finally {
   await wrongHostPool.end();

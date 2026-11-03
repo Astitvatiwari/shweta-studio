@@ -1,5 +1,4 @@
-import pg from 'pg';
-import { postgresConnectionOptions } from '../data/postgres-connection.js';
+import { createPostgresPool } from '../data/postgres-pool.js';
 import {
   resolveStagingTestFixtureConfig,
   assertStagingTestDatabaseIsEmpty,
@@ -10,14 +9,12 @@ import {
   verifyStagingTestDatabaseRole
 } from '../data/staging-test-fixture.js';
 
-const { Pool } = pg;
 const config = resolveStagingTestFixtureConfig();
 if (!config.enabled) {
   throw new Error('Refusing to initialize a database without explicit staging-fixture gates.');
 }
 
-const pool = new Pool({
-  ...postgresConnectionOptions(config.databaseUrl),
+const pool = createPostgresPool(config.databaseUrl, {
   max: 1,
   connectionTimeoutMillis: 10000
 });
