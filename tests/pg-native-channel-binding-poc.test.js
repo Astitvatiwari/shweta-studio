@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import dns from 'node:dns';
 import { readFile } from 'node:fs/promises';
 import net from 'node:net';
 import tls from 'node:tls';
@@ -16,6 +17,7 @@ if (process.env.CI !== 'true' || !databaseUrl || !caFile || !wrongCaFile || !tes
 function assertDisposableUrl(value) {
   const url = new URL(value);
   if (!['localhost', '127.0.0.1', '::1'].includes(url.hostname) ||
+      (url.searchParams.has('hostaddr') && url.searchParams.get('hostaddr') !== '127.0.0.1') ||
       !url.pathname.slice(1).endsWith('_test')) {
     throw new Error('Refusing to connect outside a loopback _test database.');
   }
@@ -32,6 +34,13 @@ assert.throws(
   /loopback _test database/,
   'loopback URLs to non-test databases must be rejected before connecting'
 );
+assert.throws(
+  () => assertDisposableUrl('postgres://user:password@localhost/shweta_test?hostaddr=192.0.2.10'),
+  /loopback _test database/,
+  'hostaddr must not redirect a test connection away from loopback'
+);
+assert.equal(baseUrl.hostname, 'localhost', 'TLS identity must remain the DNS hostname');
+baseUrl.searchParams.set('hostaddr', '127.0.0.1');
 
 // Never silently fall back to the pure-JS pg driver in this proof of concept.
 const Native = pg.native;
@@ -42,6 +51,18 @@ const { Client, Pool } = Native;
 
 function connectionUrl({ host, password, sslmode = 'verify-full', rootCert = caFile } = {}) {
   const url = new URL(baseUrl);
+  if (host) url.hostname = host;
+  if (password) url.password = password;
+  url.searchParams.set('sslmode', sslmode);
+  url.searchParams.set('channel_binding', 'require');
+  if (rootCert) url.searchParams.set('sslrootcert', rootCert);
+  else url.searchParams.delete('sslrootcert');
+  return url.toString();
+}
+
+function postgresJsConnectionUrl({ host, password, sslmode = 'verify-full', rootCert = caFile } = {}) {
+  const url = new URL(baseUrl);
+  url.searchParams.delete('hostaddr');
   if (host) url.hostname = host;
   if (password) url.password = password;
   url.searchParams.set('sslmode', sslmode);
@@ -171,7 +192,7 @@ async function startPlainScramOnlyServer({ key, cert }) {
 
 // Strict success against disposable PostgreSQL: a TLS+SCRAM connection can
 // succeed under channel_binding=require only if libpq completed PLUS.
-const pool = new Pool({ connectionString: databaseUrl, max: 2, connectionTimeoutMillis: 5000 });
+const pool = new Pool({ connectionString: connectionUrl(), max: 2, connectionTimeoutMillis: 5000 });
 try {
   const checked = await pool.query(`SELECT current_database() AS database_name,
     (SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()) AS tls_enabled`);
@@ -232,7 +253,13 @@ console.log('pg-native wrong-credential, invalid-CA, hostname-mismatch and TLS-d
 // Compare the newly released pure-JavaScript Postgres.js v4 driver. It has a
 // different API from pg, but its documented channel_binding=require policy
 // avoids native libpq dependencies.
-const jsDriver = postgres(databaseUrl, { max: 2, connect_timeout: 5 });
+// Unlike libpq, this driver uses Node's resolver. Keep the DNS hostname for TLS,
+// but resolve localhost to the runner's IPv4-only loopback publication.
+dns.setDefaultResultOrder('ipv4first');
+const localhostAddresses = await dns.promises.lookup('localhost', { all: true });
+assert.equal(localhostAddresses[0].address, '127.0.0.1',
+  'Postgres.js localhost must resolve to the disposable IPv4 loopback listener');
+const jsDriver = postgres(postgresJsConnectionUrl(), { max: 2, connect_timeout: 5 });
 try {
   const [checked] = await jsDriver`SELECT current_database() AS database_name,
     (SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()) AS tls_enabled`;
@@ -250,22 +277,22 @@ try {
   await jsDriver.end({ timeout: 5 });
 }
 await expectPostgresJsFailure(
-  connectionUrl({ password: 'wrong_synthetic_password' }),
+  postgresJsConnectionUrl({ password: 'wrong_synthetic_password' }),
   /password authentication failed/i,
   'Postgres.js incorrect credentials must fail'
 );
 await expectPostgresJsFailure(
-  connectionUrl({ rootCert: wrongCaFile }),
+  postgresJsConnectionUrl({ rootCert: wrongCaFile }),
   /SELF_SIGNED_CERT_IN_CHAIN|CERT_UNTRUSTED|certificate verify failed/i,
   'Postgres.js untrusted certificate authority must fail'
 );
 await expectPostgresJsFailure(
-  connectionUrl({ host: '127.0.0.1' }),
+  postgresJsConnectionUrl({ host: '127.0.0.1' }),
   /ERR_TLS_CERT_ALTNAME_INVALID|does not match certificate|hostname mismatch/i,
   'Postgres.js hostname mismatch must fail'
 );
 await expectPostgresJsFailure(
-  connectionUrl({ sslmode: 'disable', rootCert: null }),
+  postgresJsConnectionUrl({ sslmode: 'disable', rootCert: null }),
   /CHANNEL_BINDING_REQUIRED|channel.?binding.*require/i,
   'Postgres.js TLS-disabled connection must fail under channel_binding=require'
 );
