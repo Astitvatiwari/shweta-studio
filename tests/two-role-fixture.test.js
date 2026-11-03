@@ -6,6 +6,25 @@ import { writeFileSync, unlinkSync } from 'node:fs';
 import { postgresConnectionOptions } from '../data/postgres-connection.js';
 import { createPostgresPool } from '../data/postgres-pool.js';
 import { resolveStagingTestFixtureConfig, verifyStagingTestDatabaseIdentity } from '../data/staging-test-fixture.js';
+// libpq connection failures may omit SQLSTATE; accept only this disposable peer's
+// exact password rejection, never generic transport/TLS errors or another role.
+function isPasswordRejection(error, nativeDriver) {
+  if (error.code === '28P01') return true;
+  return nativeDriver && error.code === undefined &&
+    /^connection to server at "phase6-main\.neon\.tech" \(127\.0\.0\.1\), port 5433 failed: FATAL:\s+password authentication failed for user "shweta_two_app"\s*$/.test(error.message);
+}
+const nativePasswordError = { message: 'connection to server at "phase6-main.neon.tech" (127.0.0.1), port 5433 failed: FATAL:  password authentication failed for user "shweta_two_app"\n' };
+assert.equal(isPasswordRejection({ code: '28P01' }, false), true);
+assert.equal(isPasswordRejection(nativePasswordError, true), true);
+assert.equal(isPasswordRejection(nativePasswordError, false), false);
+for (const error of [
+  { code: 'ENOTFOUND' }, { code: 'ECONNREFUSED' }, { code: 'ERR_TLS_CERT_ALTNAME_INVALID' },
+  { message: 'certificate verify failed' }, { message: 'connection timeout' },
+  { ...nativePasswordError, code: '08006' },
+  { message: nativePasswordError.message.replace('shweta_two_app', 'unexpected_role') },
+  { message: nativePasswordError.message.replace('phase6-main.neon.tech', 'unexpected.neon.tech') }
+]) assert.equal(isPasswordRejection(error, true), false);
+console.log('Password rejection predicate positive and negative checks passed.');
 const adminUrl = process.env.TEST_DATABASE_URL;
 if (!adminUrl) { if (process.env.CI) throw Error('Disposable database required'); console.log('SKIP two-role integration: no disposable database'); process.exit(0); }
 const u = new URL(adminUrl);
@@ -53,14 +72,30 @@ try {
   assert.equal((await appPool.query('SELECT value FROM future_object')).rows[0].value,'after');
   await assert.rejects(appPool.query('DELETE FROM future_object'),e=>e.code==='42501');
   await migrationPool.query('DROP TABLE future_object');
-  await migrationPool.query('BEGIN');await migrationPool.query('CREATE TABLE rollback_probe(id int)');
-  await assert.rejects(migrationPool.query('SELECT undefined_migration_function()'));await migrationPool.query('ROLLBACK');
+  const migrationClient = await migrationPool.connect();
+  let transactionOpen = false;
+  try {
+    await migrationClient.query('BEGIN');
+    transactionOpen = true;
+    const before = await migrationClient.query('SELECT pg_backend_pid() AS pid');
+    await migrationClient.query('CREATE TABLE rollback_probe(id int)');
+    await assert.rejects(migrationClient.query('SELECT undefined_migration_function()'), error => error.code === '42883');
+    await assert.rejects(migrationClient.query('SELECT 1'), error => error.code === '25P02', 'the same session must be in failed transaction state');
+    await migrationClient.query('ROLLBACK');
+    transactionOpen = false;
+    const after = await migrationClient.query("SELECT pg_backend_pid() AS pid, to_regclass('public.rollback_probe') AS probe");
+    assert.equal(after.rows[0].pid, before.rows[0].pid);
+    assert.equal(after.rows[0].probe, null);
+  } finally {
+    try { if (transactionOpen) await migrationClient.query('ROLLBACK'); }
+    finally { migrationClient.release(); }
+  }
   assert.equal((await migrationPool.query("SELECT to_regclass('rollback_probe') AS name")).rows[0].name,null);
   const wrongDatabase=new URL(roleUrl(app));wrongDatabase.pathname='/postgres';
   const deniedDatabase=createPostgresPool(wrongDatabase.toString(),{max:1},{env});
   // Database identity validation must reject even when provider-wide PUBLIC CONNECT exists.
   try { await assert.rejects(verifyStagingTestDatabaseIdentity(deniedDatabase.query.bind(deniedDatabase),config),/configuration rejected/); } finally { await deniedDatabase.end(); }
-  const wrong=new URL(roleUrl(app));wrong.password='incorrect';const rejected=createPostgresPool(wrong.toString(),{max:1},{env});try{await assert.rejects(rejected.query('SELECT 1'),e=>e.code==='28P01');}finally{await rejected.end();}
+  const wrong=new URL(roleUrl(app));wrong.password='incorrect';const rejected=createPostgresPool(wrong.toString(),{max:1},{env});try{await assert.rejects(rejected.query('SELECT 1'),error => isPasswordRejection(error, native));}finally{await rejected.end();}
   if(process.env.RUNTIME_IMAGE) {
     const name='shweta-runtime-check-'+process.pid, file='/tmp/shweta-runtime-'+process.pid+'.env';
     const dockerEnv={...env,DATABASE_PROVIDER:'neon',DATABASE_DRIVER:'pg-native',PORT:'3099',SSL_CERT_FILE:'/run/ci/ca-bundle.crt'};
