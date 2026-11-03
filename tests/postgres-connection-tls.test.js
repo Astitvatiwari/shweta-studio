@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { checkServerIdentity } from 'node:tls';
 import pg from 'pg';
 import { postgresConnectionOptions } from '../data/postgres-connection.js';
 
@@ -14,12 +15,21 @@ if (!databaseUrl || !invalidCaFile) {
 }
 
 const parsed = new URL(databaseUrl);
-if (parsed.hostname !== 'localhost' ||
-    !parsed.pathname.slice(1).endsWith('_test') || process.env.CI !== 'true') {
-  throw new Error('Refusing TLS integration: use only the localhost _test database in CI.');
+const fixtureName = process.env.PG_TLS_TEST_FIXTURE || 'staging';
+const fixtures = {
+  staging: { host: 'localhost', wrongHost: '127.0.0.1', database: 'shweta_studio_test', user: 'postgres' },
+  'docker-native': { host: '127.0.0.1', wrongHost: '127.0.0.2', database: 'shweta_native_app_test', user: 'shweta_native_app' }
+};
+const fixture = Object.hasOwn(fixtures, fixtureName) ? fixtures[fixtureName] : undefined;
+if (process.env.CI !== 'true' || !fixture || !['postgres:', 'postgresql:'].includes(parsed.protocol) ||
+    parsed.hostname !== fixture.host || parsed.port !== '5433' ||
+    parsed.pathname !== `/${fixture.database}` || parsed.username !== fixture.user ||
+    parsed.search || parsed.hash) {
+  throw new Error('Refusing TLS integration: use only the configured disposable loopback CI fixture.');
 }
 
 const baseOptions = postgresConnectionOptions(databaseUrl, { sslMode: 'require', production: true });
+assert.equal(baseOptions.ssl.rejectUnauthorized, true, 'the valid connection must verify its certificate chain');
 const tlsDisabledPool = new Pool({
   connectionString: databaseUrl,
   ssl: false,
@@ -34,11 +44,26 @@ try {
 }
 
 const pool = new Pool({ ...baseOptions, max: 1, connectionTimeoutMillis: 5000 });
+let trustedFingerprint;
 try {
-  const result = await pool.query('SELECT current_database() AS database_name');
-  assert.equal(result.rows[0].database_name, parsed.pathname.slice(1));
-  const tlsState = await pool.query('SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()');
-  assert.equal(tlsState.rows[0].ssl, true, 'the accepted test connection negotiated TLS');
+  const client = await pool.connect();
+  try {
+    const result = await client.query('SELECT current_database() AS database_name');
+    assert.equal(result.rows[0].database_name, fixture.database);
+    const tlsState = await client.query('SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()');
+    assert.equal(tlsState.rows[0].ssl, true, 'the accepted test connection negotiated TLS');
+    const socket = client.connection.stream;
+    assert.equal(socket.authorized, true, 'the accepted connection has a trusted certificate chain');
+    const certificate = socket.getPeerCertificate();
+    trustedFingerprint = certificate.fingerprint256;
+    assert.ok(trustedFingerprint, 'the accepted connection must present a certificate');
+    assert.equal(checkServerIdentity(fixture.host, certificate), undefined,
+      'the trusted certificate must match the successful loopback identity');
+    assert.equal(checkServerIdentity(fixture.wrongHost, certificate)?.code, 'ERR_TLS_CERT_ALTNAME_INVALID',
+      'the trusted certificate must not match the deliberately incorrect loopback identity');
+  } finally {
+    client.release();
+  }
 } finally {
   await pool.end();
 }
@@ -58,19 +83,50 @@ try {
 }
 
 const wrongHostUrl = new URL(databaseUrl);
-wrongHostUrl.hostname = '127.0.0.1';
+wrongHostUrl.hostname = fixture.wrongHost;
 assert.notEqual(wrongHostUrl.hostname, parsed.hostname,
   'the mismatch test changes the actual TCP connection hostname');
+
+// Prove the alternate loopback address reaches the same TLS peer and database.
+// The chain is still verified, and identity is checked against the known-good
+// fixture identity; the following rejection test uses the actual address.
+const controlOptions = postgresConnectionOptions(wrongHostUrl.toString(), { sslMode: 'require', production: true });
+const reachableWrongHostPool = new Pool({
+  ...controlOptions,
+  ssl: { ...controlOptions.ssl, checkServerIdentity: (_host, certificate) => checkServerIdentity(fixture.host, certificate) },
+  max: 1,
+  connectionTimeoutMillis: 5000
+});
+try {
+  const client = await reachableWrongHostPool.connect();
+  try {
+    const result = await client.query(`SELECT current_database() AS database_name,
+      (SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()) AS ssl`);
+    assert.equal(result.rows[0].database_name, fixture.database);
+    assert.equal(result.rows[0].ssl, true, 'alternate loopback address must negotiate TLS');
+    assert.equal(client.connection.stream.authorized, true, 'alternate address must present a trusted chain');
+    assert.equal(client.connection.stream.getPeerCertificate().fingerprint256, trustedFingerprint,
+      'alternate loopback address must reach the same certificate');
+  } finally {
+    client.release();
+  }
+} finally {
+  await reachableWrongHostPool.end();
+}
+
 const wrongHostPool = new Pool({
   ...postgresConnectionOptions(wrongHostUrl.toString(), { sslMode: 'require', production: true }),
   max: 1,
   connectionTimeoutMillis: 5000
 });
 try {
-  await assert.rejects(wrongHostPool.query('SELECT 1'), /certificate|altname|hostname|does not match/i,
-    'a valid chain with a hostname mismatch must be rejected');
+  await assert.rejects(wrongHostPool.query('SELECT 1'), error => {
+    assert.equal(error.code, 'ERR_TLS_CERT_ALTNAME_INVALID', 'rejection must be caused by server identity mismatch');
+    assert.equal(error.host, fixture.wrongHost, 'rejection must identify the deliberately incorrect loopback address');
+    return true;
+  });
 } finally {
   await wrongHostPool.end();
 }
 
-console.log('Disposable PostgreSQL TLS checks passed: trusted chain/hostname accepted; invalid CA and hostname rejected.');
+console.log(`Disposable PostgreSQL TLS checks passed (${fixtureName}): trusted chain and identity accepted; alternate loopback reached the same TLS certificate; invalid CA, identity mismatch and plaintext rejected.`);

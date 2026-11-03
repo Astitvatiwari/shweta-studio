@@ -243,7 +243,7 @@ docker run --rm --network host \
 echo "Running full application, database, TLS, and fixture regressions with Node pg (default driver)."
 CI=true NODE_ENV=test PGSSLMODE=require NODE_EXTRA_CA_CERTS="$WORK_DIR/ca.crt" \
   TEST_DATABASE_URL="$APP_HOST_URL" npm run test:all
-CI=true PGSSLMODE=require NODE_EXTRA_CA_CERTS="$WORK_DIR/ca.crt" \
+CI=true PGSSLMODE=require PG_TLS_TEST_FIXTURE=docker-native NODE_EXTRA_CA_CERTS="$WORK_DIR/ca.crt" \
   TEST_DATABASE_URL="$APP_HOST_URL" INVALID_TEST_CA_FILE="$WORK_DIR/wrong-ca.crt" \
   npm run test:db-connection-tls
 CI=true PGSSLMODE=require NODE_EXTRA_CA_CERTS="$WORK_DIR/ca.crt" \
