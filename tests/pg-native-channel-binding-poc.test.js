@@ -1,10 +1,15 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import net from 'node:net';
 import tls from 'node:tls';
 import pg from 'pg';
 import postgres from 'postgres';
 
+const suite = process.env.PG_NATIVE_POC_SUITE || 'all';
+if (!['all', 'pg-native', 'postgres-js'].includes(suite)) {
+  throw new Error(`Unsupported PG_NATIVE_POC_SUITE: ${suite}`);
+}
 const databaseUrl = process.env.PG_NATIVE_POC_DATABASE_URL;
 const caFile = process.env.PG_NATIVE_POC_CA_FILE;
 const wrongCaFile = process.env.PG_NATIVE_POC_WRONG_CA_FILE;
@@ -48,12 +53,12 @@ assert.equal(baseUrl.searchParams.has('hostaddr'), false,
 assert.equal(assertDisposableUrl('postgres://user:password@127.0.0.2/shweta_test').hostname, '127.0.0.2',
   'the alternate wrong-identity test endpoint must also be loopback-only');
 
-// Never silently fall back to the pure-JS pg driver in this proof of concept.
-const Native = pg.native;
-if (!Native?.Client || !Native?.Pool) {
+// Never silently fall back to the pure-JS pg driver in the native suite.
+const Native = suite === 'postgres-js' ? null : pg.native;
+if (suite !== 'postgres-js' && (!Native?.Client || !Native?.Pool)) {
   throw new Error('pg-native is required for this test; refusing a JavaScript-driver fallback.');
 }
-const { Client, Pool } = Native;
+const { Client, Pool } = Native || {};
 
 function connectionUrl({ host, password, sslmode = 'verify-full', rootCert = caFile } = {}) {
   const url = new URL(baseUrl);
@@ -67,15 +72,24 @@ function connectionUrl({ host, password, sslmode = 'verify-full', rootCert = caF
   return assertDisposableUrl(url.toString()).toString();
 }
 
-function postgresJsConnectionUrl({ host, password, sslmode = 'verify-full', rootCert = caFile } = {}) {
+function postgresJsConnectionUrl({ host, password, sslmode = 'verify-full' } = {}) {
   const url = new URL(baseUrl);
   if (host) url.hostname = host;
   if (password) url.password = password;
   url.searchParams.set('sslmode', sslmode);
   url.searchParams.set('channel_binding', 'require');
-  if (rootCert) url.searchParams.set('sslrootcert', rootCert);
-  else url.searchParams.delete('sslrootcert');
+  // postgres.js v4 does not load libpq's sslrootcert URL parameter. Its
+  // supported API accepts Node tls.connect options through the ssl option.
+  url.searchParams.delete('sslrootcert');
   return assertDisposableUrl(url.toString()).toString();
+}
+
+function postgresJsOptions({ rootCert = caFile, tlsEnabled = true, max = 2 } = {}) {
+  return {
+    max,
+    connect_timeout: 5,
+    ssl: tlsEnabled ? { ca: readFileSync(rootCert), rejectUnauthorized: true } : false
+  };
 }
 
 function nativeClientConfig(url, overrides = {}) {
@@ -99,15 +113,20 @@ async function assertTcpLoopbackReachable(host, port, label) {
 
 async function expectConnectionFailure(url, pattern, label) {
   const client = new Client(nativeClientConfig(url, { connectionTimeoutMillis: 5000 }));
+  let rejection;
   try {
-    await assert.rejects(client.connect(), pattern, label);
+    await assert.rejects(client.connect(), error => {
+      rejection = error;
+      return pattern.test(error.message);
+    }, label);
   } finally {
     await client.end().catch(() => {});
   }
+  return rejection;
 }
 
-async function expectPostgresJsFailure(url, pattern, label) {
-  const client = postgres(url, { max: 1, connect_timeout: 5 });
+async function expectPostgresJsFailure(url, pattern, label, options = postgresJsOptions({ max: 1 })) {
+  const client = postgres(url, options);
   try {
     await assert.rejects(client.unsafe('SELECT 1'), pattern, label);
   } finally {
@@ -131,6 +150,9 @@ async function startPlainScramOnlyServer({ key, cert }) {
   let gotStartupOverTls = false;
   let offeredPlainScramOnly = false;
   let gotScramInitialResponse = false;
+  let advertisedMechanisms = [];
+  let negotiatedTlsProtocol = null;
+  let negotiatedTlsCipher = null;
 
   const server = net.createServer(raw => {
     let initial = Buffer.alloc(0);
@@ -159,9 +181,12 @@ async function startPlainScramOnlyServer({ key, cert }) {
             buffer = buffer.subarray(length);
             awaitingStartup = false;
             gotStartupOverTls = true;
+            negotiatedTlsProtocol = secure.getProtocol();
+            negotiatedTlsCipher = secure.getCipher()?.name;
             // Deliberately do not advertise SCRAM-SHA-256-PLUS.
+            advertisedMechanisms = ['SCRAM-SHA-256'];
             const saslBody = Buffer.concat([
-              int32(10), Buffer.from('SCRAM-SHA-256\0\0', 'ascii')
+              int32(10), Buffer.from(`${advertisedMechanisms[0]}\0\0`, 'ascii')
             ]);
             secure.write(protocolMessage('R', saslBody));
             offeredPlainScramOnly = true;
@@ -212,10 +237,14 @@ async function startPlainScramOnlyServer({ key, cert }) {
     },
     get gotStartupOverTls() { return gotStartupOverTls; },
     get offeredPlainScramOnly() { return offeredPlainScramOnly; },
-    get gotScramInitialResponse() { return gotScramInitialResponse; }
+    get gotScramInitialResponse() { return gotScramInitialResponse; },
+    get advertisedMechanisms() { return advertisedMechanisms; },
+    get negotiatedTlsProtocol() { return negotiatedTlsProtocol; },
+    get negotiatedTlsCipher() { return negotiatedTlsCipher; }
   };
 }
 
+if (suite !== 'postgres-js') {
 // Strict success against disposable PostgreSQL: a TLS+SCRAM connection can
 // succeed under channel_binding=require only if libpq completed PLUS.
 const pool = new Pool(nativeClientConfig(connectionUrl(), { max: 2, connectionTimeoutMillis: 5000 }));
@@ -278,14 +307,57 @@ await expectConnectionFailure(
 );
 console.log('pg-native wrong-credential, invalid-CA, hostname-mismatch and TLS-disabled rejection checks passed.');
 
+// Mandatory downgrade rejection runs before the optional pure-JavaScript
+// compatibility suite. TLS and reachability are proven independently.
+const plainOnly = await startPlainScramOnlyServer({
+  key: process.env.PG_NATIVE_POC_SERVER_KEY,
+  cert: process.env.PG_NATIVE_POC_SERVER_CERT
+});
+try {
+  await assertTcpLoopbackReachable('127.0.0.1', plainOnly.port,
+    'pg-native plain-SCRAM downgrade server must be reachable before TLS');
+  const downgradeUrl = plainOnly.url(plainOnly.port);
+  assert.equal(new URL(downgradeUrl).searchParams.get('channel_binding'), 'require',
+    'pg-native downgrade client must explicitly require channel binding');
+  const error = await expectConnectionFailure(
+    downgradeUrl,
+    /channel.?binding.*(required|require|not available|not offered|support)|SCRAM-SHA-256-PLUS.*(not offered|not supported|unavailable)|(?:no|not).*SCRAM-SHA-256-PLUS/i,
+    'plain-SCRAM-only server must be rejected specifically for missing channel binding'
+  );
+  assert.equal(plainOnly.gotStartupOverTls, true,
+    'plain-SCRAM test must complete TLS and receive PostgreSQL StartupMessage before authentication');
+  assert.equal(plainOnly.offeredPlainScramOnly, true, 'test peer must advertise ordinary SCRAM');
+  assert.deepEqual(plainOnly.advertisedMechanisms, ['SCRAM-SHA-256'],
+    'test peer must advertise ordinary SCRAM without SCRAM-SHA-256-PLUS');
+  assert.ok(plainOnly.negotiatedTlsProtocol?.startsWith('TLSv'),
+    'test peer must record a successfully negotiated TLS protocol');
+  assert.ok(plainOnly.negotiatedTlsCipher,
+    'test peer must record a successfully negotiated TLS cipher');
+  assert.match(error.message, /channel.?binding|SCRAM-SHA-256-PLUS/i,
+    'failure must identify unavailable channel binding rather than DNS, TLS, TCP or timeout');
+  assert.equal(plainOnly.gotScramInitialResponse, false,
+    'libpq must refuse before sending a plain SCRAM response');
+  console.log(`pg-native channel_binding=require rejected plain SCRAM after ${plainOnly.negotiatedTlsProtocol} negotiation (${plainOnly.negotiatedTlsCipher}); no plain-SCRAM proof was sent.`);
+} finally {
+  await plainOnly.close();
+}
+}
+
+if (suite !== 'pg-native') {
 // Compare the newly released pure-JavaScript Postgres.js v4 driver. It has a
 // different API from pg, but its documented channel_binding=require policy
 // avoids native libpq dependencies.
 // Postgres.js is tested independently with its own URL and TLS/IP identity.
 assert.equal(new URL(postgresJsConnectionUrl()).hostname, '127.0.0.1',
   'Postgres.js must connect directly to the disposable IPv4 loopback listener');
-const jsDriver = postgres(postgresJsConnectionUrl(), { max: 2, connect_timeout: 5 });
+const jsDriver = postgres(postgresJsConnectionUrl(), postgresJsOptions());
 try {
+  assert.equal(jsDriver.options.channel_binding, 'require',
+    'Postgres.js must retain channel_binding=require from the connection URL');
+  assert.equal(jsDriver.options.ssl.rejectUnauthorized, true,
+    'Postgres.js must require trusted certificates');
+  assert.deepEqual(jsDriver.options.ssl.ca, readFileSync(caFile),
+    'Postgres.js must receive the disposable CA as a Node TLS ca buffer');
   const [checked] = await jsDriver`SELECT current_database() AS database_name,
     (SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()) AS tls_enabled`;
   assert.equal(checked.database_name, baseUrl.pathname.slice(1));
@@ -307,9 +379,10 @@ await expectPostgresJsFailure(
   'Postgres.js incorrect credentials must fail'
 );
 await expectPostgresJsFailure(
-  postgresJsConnectionUrl({ rootCert: wrongCaFile }),
-  /SELF_SIGNED_CERT_IN_CHAIN|CERT_UNTRUSTED|certificate verify failed/i,
-  'Postgres.js untrusted certificate authority must fail'
+  postgresJsConnectionUrl(),
+  /SELF_SIGNED_CERT_IN_CHAIN|CERT_UNTRUSTED|UNABLE_TO_VERIFY_LEAF_SIGNATURE|certificate verify failed/i,
+  'Postgres.js untrusted certificate authority must fail',
+  postgresJsOptions({ rootCert: wrongCaFile, max: 1 })
 );
 await assertTcpLoopbackReachable('127.0.0.2', Number(baseUrl.port),
   'Postgres.js wrong-identity endpoint must be listening before TLS verification');
@@ -319,37 +392,39 @@ await expectPostgresJsFailure(
   'Postgres.js incorrect IP identity must fail certificate verification'
 );
 await expectPostgresJsFailure(
-  postgresJsConnectionUrl({ sslmode: 'disable', rootCert: null }),
-  /CHANNEL_BINDING_REQUIRED|channel.?binding.*require/i,
-  'Postgres.js TLS-disabled connection must fail under channel_binding=require'
+  postgresJsConnectionUrl({ sslmode: 'disable' }),
+  /CHANNEL_BINDING_REQUIRED|channel.?binding.*require|no pg_hba\.conf entry|no encryption/i,
+  'Postgres.js TLS-disabled connection must fail under channel_binding=require',
+  postgresJsOptions({ tlsEnabled: false, max: 1 })
 );
 console.log('Postgres.js v4 wrong-credential, invalid-CA, hostname-mismatch and TLS-disabled rejection checks passed.');
 
-// Simulate a TLS-capable server that advertises plain SCRAM only. This is the
-// downgrade test: strict libpq must reject before sending any SASL response.
+// Optional compatibility comparison against the same TLS-protected downgrade peer.
 const plainOnly = await startPlainScramOnlyServer({
   key: process.env.PG_NATIVE_POC_SERVER_KEY,
   cert: process.env.PG_NATIVE_POC_SERVER_CERT
 });
 try {
-  await expectConnectionFailure(
-    plainOnly.url(plainOnly.port),
-    /channel.?binding.*(required|require|offer|support)|SCRAM-SHA-256-PLUS.*(offer|support)|(?:no|not).*SCRAM-SHA-256-PLUS/i,
-    'plain-SCRAM-only server must be rejected'
-  );
-  assert.equal(plainOnly.gotStartupOverTls, true, 'plain-SCRAM test must reach authentication over validated TLS');
-  assert.equal(plainOnly.offeredPlainScramOnly, true, 'test peer must advertise only ordinary SCRAM');
-  assert.equal(plainOnly.gotScramInitialResponse, false,
-    'libpq must refuse before sending a plain SCRAM response');
-  console.log('pg-native rejected a TLS peer offering only plain SCRAM before sending authentication proof.');
-
-  const jsDriver = postgres(plainOnly.url(plainOnly.port), { max: 1, connect_timeout: 5 });
+  await assertTcpLoopbackReachable('127.0.0.1', plainOnly.port,
+    'Postgres.js plain-SCRAM downgrade server must be reachable before TLS');
+  const downgradeUrl = plainOnly.url(plainOnly.port);
+  assert.equal(new URL(downgradeUrl).searchParams.get('channel_binding'), 'require',
+    'Postgres.js downgrade client must explicitly require channel binding');
+  const jsDriver = postgres(downgradeUrl, postgresJsOptions({ max: 1 }));
   try {
     await assert.rejects(
       jsDriver.unsafe('SELECT 1'),
       error => /CHANNEL_BINDING_REQUIRED|channel.?binding.*require/i.test(error.message),
       'Postgres.js must reject a TLS peer offering only plain SCRAM'
     );
+    assert.equal(plainOnly.gotStartupOverTls, true,
+      'Postgres.js downgrade test must complete TLS before authentication');
+    assert.deepEqual(plainOnly.advertisedMechanisms, ['SCRAM-SHA-256'],
+      'Postgres.js downgrade peer must advertise only ordinary SCRAM');
+    assert.ok(plainOnly.negotiatedTlsProtocol?.startsWith('TLSv'),
+      'Postgres.js downgrade peer must record negotiated TLS');
+    assert.ok(plainOnly.negotiatedTlsCipher,
+      'Postgres.js downgrade peer must record the negotiated TLS cipher');
     assert.equal(plainOnly.gotScramInitialResponse, false,
       'Postgres.js must refuse before sending a plain SCRAM response');
     console.log('Postgres.js v4 rejected the plain-SCRAM-only server without sending authentication proof.');
@@ -358,4 +433,5 @@ try {
   }
 } finally {
   await plainOnly.close();
+}
 }

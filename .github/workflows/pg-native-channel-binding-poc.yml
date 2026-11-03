@@ -128,12 +128,45 @@ jobs:
           admin_psql -c "CREATE DATABASE shweta_native_poc_test OWNER poc_scram_user;"
           admin_psql -c "REVOKE CONNECT ON DATABASE postgres FROM PUBLIC;"
           printf 'PG_NATIVE_POC_DATABASE_URL=postgres://poc_scram_user:%s@127.0.0.1:5433/shweta_native_poc_test?sslmode=verify-full&sslrootcert=%s/ca.crt&channel_binding=require\n' "$PG_NATIVE_POC_PASSWORD" "$tls_dir" >> "$GITHUB_ENV"
-      - name: Test strict PLUS, downgrade rejection, TLS and driver compatibility
+      - name: Run mandatory pg-native strict PLUS, downgrade, TLS and compatibility checks
+        id: pg-native
+        env:
+          PG_NATIVE_POC_SUITE: pg-native
         run: node tests/pg-native-channel-binding-poc.test.js
+      - name: Run optional Postgres.js v4 compatibility checks
+        id: postgres-js
+        if: always()
+        continue-on-error: true
+        env:
+          PG_NATIVE_POC_SUITE: postgres-js
+        run: node tests/pg-native-channel-binding-poc.test.js
+      - name: Record independent driver results
+        if: always()
+        env:
+          PG_NATIVE_OUTCOME: ${{ steps.pg-native.outcome }}
+          POSTGRES_JS_OUTCOME: ${{ steps.postgres-js.outcome }}
+        run: |
+          {
+            echo '### Disposable PostgreSQL driver POC'
+            echo
+            echo "- pg-native mandatory suite: **${PG_NATIVE_OUTCOME}**"
+            echo "- Postgres.js v4 compatibility suite: **${POSTGRES_JS_OUTCOME}** (optional, reported separately)"
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Remove disposable database container, image and TLS material
         if: always()
         run: |
+          set +e
+          if docker inspect shweta-pg-native-channel-binding >/dev/null 2>&1; then
+            admin_conn="host=127.0.0.1 port=5433 dbname=postgres user=postgres sslmode=verify-full sslrootcert=$tls_dir/ca.crt connect_timeout=3"
+            PGPASSWORD="$PG_NATIVE_POC_ADMIN_PASSWORD" psql "$admin_conn" -X -v ON_ERROR_STOP=1 \
+              -c 'DROP DATABASE IF EXISTS shweta_native_poc_test WITH (FORCE);' >/dev/null 2>&1
+            PGPASSWORD="$PG_NATIVE_POC_ADMIN_PASSWORD" psql "$admin_conn" -X -v ON_ERROR_STOP=1 \
+              -c 'DROP ROLE IF EXISTS poc_scram_user;' >/dev/null 2>&1
+          fi
           docker rm -f shweta-pg-native-channel-binding >/dev/null 2>&1 || true
           docker image rm "shweta-pg-native-channel-binding:${{ matrix.postgres }}" >/dev/null 2>&1 || true
           rm -rf "$RUNNER_TEMP/pg-native-channel-binding"
           test ! -e "$RUNNER_TEMP/pg-native-channel-binding"
+          if [ -n "${GITHUB_ENV:-}" ] && [ -f "$GITHUB_ENV" ]; then
+            sed -i '/^PG_NATIVE_POC_\(ADMIN_PASSWORD\|PASSWORD\|DATABASE_URL\|CA_FILE\|WRONG_CA_FILE\|SERVER_KEY\|SERVER_CERT\)=/d; /^tls_dir=/d' "$GITHUB_ENV"
+          fi
