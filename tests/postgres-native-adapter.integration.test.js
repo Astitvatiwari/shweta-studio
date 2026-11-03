@@ -139,7 +139,7 @@ try {
   assert.throws(() => createPostgresPool(disabledTls.toString()), /reject.*sslmode/i,
     'disabled TLS is rejected before a pool can be created');
 
-  const { createPostgresStore, closeStore } = await import('../data/inventory-postgres-store.js');
+  const { createPostgresStore } = await import('../data/inventory-postgres-store.js');
   const catalog = ['SS-CI-NATIVE-001', 'SS-CI-NATIVE-002', 'SS-CI-NATIVE-003'].map((inventoryCode, index) => ({
     id: `native-ci-${index + 1}`,
     inventoryCode,
@@ -213,7 +213,6 @@ try {
       'failed payment releases the native reservation');
   } finally {
     await store.close();
-    await closeStore();
   }
 
   console.log(`Native adapter integration passed on ${process.env.PG_VERSION}: Pool/Client, TLS, identity, role, migration schema, inventory locks, rollback, payment and webhook persistence.`);
