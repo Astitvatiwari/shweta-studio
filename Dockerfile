@@ -69,9 +69,17 @@ RUN npm ci --omit=dev && node --input-type=module -e "import pg from 'pg'; if (!
 FROM node:24.22.1-bookworm-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
+# Bootstrap trust using only the base Debian repositories before adding PGDG.
+RUN apt-get update --error-on=any && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    test -s /etc/ssl/certs/ca-certificates.crt && \
+    rm -rf /var/lib/apt/lists/*
 COPY --from=build /usr/share/keyrings/pgdg.gpg /usr/share/keyrings/pgdg.gpg
 COPY --from=build /etc/apt/sources.list.d/pgdg.list /etc/apt/sources.list.d/pgdg.list
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libpq5=18.6-1.pgdg12+2 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update --error-on=any && \
+    apt-get install -y --no-install-recommends libpq5=18.6-1.pgdg12+2 && \
+    test "$(dpkg-query -W -f='${Version}' libpq5)" = '18.6-1.pgdg12+2' && \
+    rm -rf /var/lib/apt/lists/*
 COPY --from=build /workspace/node_modules ./node_modules
 COPY package.json server.js artworks.js ./
 COPY data/*.js ./data/
